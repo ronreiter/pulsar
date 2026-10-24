@@ -1,0 +1,136 @@
+// Skyline: epic deep / progressive house, E minor, 122 BPM.
+// Big layered chords and a clean sawtooth lead (patch fitted with `pulsar timbre`) bathed in reverb.
+tempo 122
+key "E minor"
+swing 0.04
+seed 21
+loudness -9.5
+
+bus reverb = reverb(decay: 5.5, size: 0.95, damp: 0.35, predelay: 0.035, lowcut: 250)
+bus delay  = delay(3/16, feedback: 0.42, tone: 0.5)
+
+// ---- sounds -------------------------------------------------------------------
+track kick  = drums("house", bd_tune: 57, bd_punch: 4.5, bd_decay: 0.32, bd_click: 0.25, bd_tone: 0.3, bd_gain: -8)
+track hats  = drums("house", hh_tune: 1.8, hh_decay: 0.06, hh_noise: 0.6, oh_tune: 1.8, oh_decay: 0.3,
+                    oh_gain: -3, sh_gain: -5, cr_gain: -4, reverb: 0.1)
+track snare = drums("house", sd_gain: -2, cp_gain: -1, reverb: 0.3)
+track bass  = synth("moog_bass", cutoff: 0.36, resonance: 0.35, env_amount: 3.0, fdecay: 0.15, fsustain: 0.2,
+                    decay: 0.3, sustain: 0.6, release: 0.08, drive: 0.35, width: 0, duck: 0.65, gain: 5)
+  >> hp(80) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
+track sub   = synth("sub", width: 0, duck: 0.7, gain: -4)
+// the lead: clean saw, its own big reverb and a dotted delay
+track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.15, resonance: 0.28,
+                     env_amount: 4.6, fdecay: 0.14, fsustain: 0.75, attack: 0.006, decay: 0.25, sustain: 0.78,
+                     release: 0.45, drive: 0.08, octave: 4, duck: 0.35, reverb: 0.55, delay: 0.3, gain: 6)
+  >> hp(220) >> reverb(mix: 0.3, decay: 4.5, size: 0.9, damp: 0.4, predelay: 0.03)
+track lead_hi = synth("supersaw", reverb: 0.5, delay: 0.2, duck: 0.4, gain: 3, octave: 5) >> hp(400)
+// chords at three depths: a wide supersaw bed, short offbeat stabs, a slow pad underneath
+track chords = synth("supersaw", cutoff: 0.5, reverb: 0.45, duck: 0.6, width: 1.6, gain: -2, octave: 3)
+  >> hp(280) >> filter(0.7)
+track stabs = synth("stab", reverb: 0.35, delay: 0.15, duck: 0.5, pan: 0.2, octave: 4, gain: 0) >> hp(350)
+  >> comp(threshold: -18, ratio: 4, attack: 0.003, release: 0.08)
+track pad   = synth("strings", reverb: 0.6, duck: 0.5, width: 1.5, gain: -4, octave: 3) >> hp(250) >> chorus(0.3)
+track rise  = synth("riser", reverb: 0.4, gain: 3)
+track sweep = synth("downlifter", reverb: 0.5)
+track boom  = synth("impact", reverb: 0.6, gain: 3)
+
+// ---- material -------------------------------------------------------------------
+let prog  = "<Em9 Cmaj9 G6 Dsus2>"
+let roots = "<e1 c2 g1 d2>"
+fn bassline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.6).vel("1 0.7 0.85 0.7 0.9 0.6")
+fn subline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.85)
+// a soaring melody of long notes (scale degrees in E minor), with an answering second half
+let theme_a = "<[4 ~ ~ 2 ~ ~ 4 ~ 5 _ _ _ 4 ~ 2 ~] [1 ~ ~ 0 ~ ~ 1 ~ 2 _ _ _ _ _ ~ ~]>"
+let theme_b = "<[4 ~ ~ 2 ~ ~ 4 ~ 7 _ _ _ 6 ~ 5 ~] [4 _ _ _ 2 _ _ _ 1 _ _ _ ~ ~ ~ ~]>"
+let theme   = cat(theme_a, theme_a, theme_b, theme_a)
+let beat    = "bd*4, ~ cp ~ cp"
+let tops    = "[~ hh]*4, [~ ~ ~ oh]*2?0.2, sh*16?0.35"
+
+// ---- arrangement -----------------------------------------------------------------
+section intro 16 {
+  play kick "bd*4"
+  play hats "[~ hh]*4" from 8
+  play pad prog.voicing("smooth")
+  play lead theme_a.legato(0.9).vel(0.5) from 8
+  automate pad.cutoff 0.25 -> 0.45
+  automate lead.cutoff 0.08 -> 0.15 from 8
+}
+
+section groove 16 {
+  play kick beat
+  play hats tops
+  play bass bassline()
+  play sub subline()
+  play pad prog.voicing("smooth")
+  play stabs prog.voicing("open").struct("~ x ~ ~ ~ x ~ x").legato(0.4)
+  play hats "cr" at 0
+  automate stabs.cutoff 0.25 -> 0.4
+}
+
+section build 8 {
+  play kick "bd*4" to 4
+  play hats tops
+  play pad prog.voicing("smooth")
+  play chords prog.voicing("smooth").legato(1)
+  play lead theme_a.legato(0.9).vel(0.7)
+  play snare "sd*4" from 4 to 6
+  play snare "sd*8" from 6 to 7
+  play snare "sd*16" from 7
+  play rise "0/8"
+  automate chords.filter.cutoff 0.3 -> 0.9
+  automate snare.gain -16 -> -6
+}
+
+section drop 32 {
+  play kick beat.lastof(8, fn(p) => "bd*4, ~ cp ~ [cp cp]")
+  play hats tops
+  play hats "cr" at 0
+  play hats "cr" at 16
+  play boom "0" at 0
+  play bass bassline()
+  play sub subline()
+  play chords prog.voicing("smooth").legato(1)
+  play stabs prog.voicing("open").struct("~ x ~ ~ ~ x ~ x").legato(0.4)
+  play lead theme.legato(0.92)
+  automate chords.filter.cutoff 0.7
+  automate chords.gain -2
+}
+
+section breakdown 16 {
+  play sweep "0/4" at 0 to 4
+  play pad prog.voicing("smooth").legato(1)
+  play chords prog.voicing("smooth").legato(1) from 8
+  play lead theme_b.legato(0.95).vel(0.6)
+  play hats "sh*8?0.3" from 12
+  automate chords.filter.cutoff 0.15 -> 0.5 from 8
+  automate chords.gain -6
+  automate lead.gain -3
+  automate pad.gain -3
+}
+
+section build2 8 extends build {
+  play lead theme_b.legato(0.9)
+  automate chords.gain -6 -> 0
+  automate lead.gain -3 -> 0
+  automate pad.gain -3 -> 0
+}
+
+section finale 32 extends drop {
+  play lead_hi theme.legato(0.9).vel(0.85)
+  play hats "[~ hh]*4, [~ ~ ~ oh]*2?0.2, sh*16?0.35, ~ ~ ~ ~ ~ ~ rd ~"
+  play pad prog.voicing("smooth").legato(1)
+  automate chords.filter.cutoff 1.0
+  automate chords.gain 2
+  automate lead.gain 1
+}
+
+section outro 16 {
+  play kick "bd*4" to 12
+  play hats "[~ hh]*4" to 12
+  play pad prog.voicing("smooth")
+  play lead theme_a.legato(0.9).vel(0.6) to 8
+  play sweep "0/4" at 12 to 16
+  automate pad.gain 0 -> -14 from 8
+}
+
+arrange intro, groove, build, drop, breakdown, build2, finale, outro

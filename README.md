@@ -22,7 +22,9 @@ balance, energy per section, masking between tracks) and revises it — no ears 
 agent that was given nothing but `pulsar docs` and the CLI.
 **[Hear it on the website →](https://ronreiter.github.io/pulsar/#listen)**
 [`examples/night_bus.pulse`](examples/night_bus.pulse) is a second deep house track built around
-a clean sawtooth lead whose patch was fitted to a reference recording with `pulsar timbre`.
+a clean sawtooth lead whose patch was fitted to a reference recording with `pulsar timbre`, and
+[`examples/skyline.pulse`](examples/skyline.pulse) is an epic progressive-house track with layered
+chords and the same lead bathed in reverb.
 
 ```
 tempo 122
