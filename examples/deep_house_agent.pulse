@@ -41,7 +41,8 @@ track boom  = synth("impact", gain: 3)
 let harmony_line = "<c4 a3 a3 g3 c4 d4 c4 b3>".legato(0.92)
 
 // --- keys: house comping (hits on 1, the "and" of 2, 3-and-a-half...) with ghost-note velocities
-let comp = prog.voicing("smooth").struct("x ~ ~ x ~ ~ x ~ ~ ~ x ~ ~ x ~ ~").legato(0.45)
+// each hit is held until just before the next one (3 + 3 + 4 + 3 + 3 sixteenths)
+let comp = prog.voicing("smooth").struct("x _ _ x _ _ x _ _ _ x _ _ x _ _").legato(0.85)
   .vel("0.9 0.55 0.75 0.5 0.7 0.6")
 
 // --- drum patterns
