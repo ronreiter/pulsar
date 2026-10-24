@@ -203,3 +203,9 @@ def test_sung_word_hits_its_pitch():
     f0, t = pw.harvest(y.astype(np.float64), tts.TTS_SR, f0_floor=100, f0_ceil=900, frame_period=5)
     mid = f0[(t > lead + 0.1) & (t < 0.6)]
     assert abs(np.median(mid[mid > 0]) - 523.25) < 10
+
+
+def test_section_name_cannot_hide_a_variable():
+    with pytest.raises(PulsarError) as e:
+        score('let groove = "bd*4"\nsection groove 4 { play kit groove }')
+    assert "would hide" in e.value.msg

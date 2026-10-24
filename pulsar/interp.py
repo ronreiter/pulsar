@@ -332,6 +332,9 @@ class Interp:
         loc = loc_of(node)
         if self.section is not None:
             raise PulsarError("sections can't be nested", loc)
+        if env.has(name) and not isinstance(env.get(name), Section):
+            raise PulsarError(f"section {name!r} would hide the {type_name(env.get(name))} named {name!r}", loc,
+                              f"rename one of them, e.g. section {name}_part or let {name}_pattern")
         base = None
         if parent is not None:
             base = self.song.sections.get(str(parent))

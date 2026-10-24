@@ -21,6 +21,8 @@ balance, energy per section, masking between tracks) and revises it — no ears 
 [`examples/deep_house_agent.pulse`](examples/deep_house_agent.pulse) was written by a fresh
 agent that was given nothing but `pulsar docs` and the CLI.
 **[Hear it on the website →](https://ronreiter.github.io/pulsar/#listen)**
+[`examples/night_bus.pulse`](examples/night_bus.pulse) is a second deep house track built around
+a clean sawtooth lead whose patch was fitted to a reference recording with `pulsar timbre`.
 
 ```
 tempo 122

@@ -1,0 +1,99 @@
+// Night Bus: deep house, D minor, 121 BPM.
+// The lead is a single clean sawtooth through a state-variable filter that opens with a
+// quick blip and sustains warmly (a patch fitted to a reference lead's timbre with `pulsar timbre`).
+tempo 121
+key "D minor"
+swing 0.06
+seed 11
+
+bus reverb = reverb(decay: 3.4, size: 0.8, damp: 0.5, predelay: 0.02)
+bus delay  = delay(3/16, feedback: 0.35, tone: 0.45)
+
+// ---- sounds -------------------------------------------------------------------
+track kick  = drums("house", bd_tune: 59.3, bd_punch: 4.9, bd_pdecay: 0.045, bd_decay: 0.3, bd_click: 0.18,
+                    bd_drive: 0.09, bd_tone: 0.22)
+track hats  = drums("house", hh_tune: 1.84, hh_decay: 0.07, hh_tone: 0, hh_noise: 0.65,
+                    oh_tune: 1.84, oh_decay: 0.28, oh_tone: 0, oh_noise: 0.65, oh_gain: -3, sh_gain: -5, rim_gain: -7)
+track bass  = synth("moog_bass", cutoff: 0.38, resonance: 0.4, env_amount: 3.2, fdecay: 0.14, fsustain: 0.2,
+                    decay: 0.3, sustain: 0.6, release: 0.07, drive: 0.4, width: 0, duck: 0.6, gain: 3)
+  >> hp(80) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
+track sub   = synth("sub", width: 0, duck: 0.65, gain: -4)
+track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.13, resonance: 0.29,
+                     env_amount: 5.0, fdecay: 0.12, fsustain: 0.75, attack: 0.004, decay: 0.19, sustain: 0.73,
+                     release: 0.3, drive: 0.1, octave: 3, duck: 0.3, reverb: 0.28, delay: 0.2, pan: 0.1, gain: 7)
+  >> hp(200)
+track organ = synth("organ_stab", reverb: 0.25, duck: 0.45, pan: -0.2, gain: -4, octave: 3) >> hp(260) >> chorus(0.35)
+track pad   = synth("pad", reverb: 0.45, duck: 0.6, gain: -6, octave: 3, width: 1.5) >> hp(300)
+track sweep = synth("noise_sweep", reverb: 0.45, gain: 2)
+track boom  = synth("impact", reverb: 0.4, gain: 2)
+
+// ---- material -------------------------------------------------------------------
+let prog  = "<Dm9 Bbmaj7 Gm9 A7sus4>"
+let roots = "<d2 bb1 g1 a1>"
+fn bassline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.6)
+  .vel("1 0.7 0.85 0.7 0.9 0.6")
+  .off(3/8, fn(p) => p.oct(1).vel(0.5).degrade(0.5))
+fn subline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.85)
+// the lead riff (scale degrees in D minor, octave 3) and a sparser answer
+let riff   = "<[~ 4 ~ 4 2 ~ 4 ~ ~ 5 ~ 4 ~ 2 ~ ~] [~ 4 ~ 4 2 ~ 1 ~ ~ 2 ~ ~ 0 ~ ~ ~]>"
+let answer = "<[~ ~ 7 ~ 6 ~ 4 ~ ~ ~ 5 ~ 4 ~ ~ ~] [~ ~ 4 ~ 2 ~ 1 ~ 0 ~ ~ ~ ~ ~ ~ ~]>"
+let hook   = cat(riff, riff, answer, riff)
+fn stabs() = prog.voicing("open").struct("~ ~ x ~ ~ ~ ~ ~ ~ ~ x ~ ~ ~ ~ ~").legato(0.5)
+let beat   = "bd*4, ~ cp ~ cp"
+let tops   = "[~ hh]*4, [~ ~ ~ oh]*2?0.25, sh*16?0.35"
+
+// ---- arrangement -----------------------------------------------------------------
+section intro 16 {
+  play kick "bd*4"
+  play hats "[~ hh]*4" from 4
+  play hats "sh*16?0.35" from 8
+  play pad prog.voicing("smooth") from 8
+  automate pad.cutoff 0.2 -> 0.4
+}
+
+section groove 16 {
+  play kick beat
+  play hats tops
+  play bass bassline()
+  play sub subline()
+  play pad prog.voicing("smooth")
+  play organ stabs() from 8
+  play lead riff.legato(0.7).vel(0.65) from 12
+  automate lead.cutoff 0.1 -> 0.13 from 12
+}
+
+section hook1 32 extends groove {
+  play lead hook.legato(0.75).vel("0.95 0.7 0.85 0.7")
+  play kick beat.lastof(8, fn(p) => "bd*4, ~ cp ~ [cp cp]")
+  play boom "0" at 0
+}
+
+section breakdown 16 {
+  play pad prog.voicing("smooth").legato(1)
+  play organ prog.voicing("open").legato(0.9) to 8
+  play lead answer.legato(0.9).vel(0.6) from 4
+  play hats "sh*8?0.3" from 8
+  play sweep "0/4" from 12
+  automate pad.cutoff 0.25 -> 0.55
+  automate pad.gain 4
+  automate lead.gain -1
+}
+
+section hook2 32 extends hook1 {
+  play hats "[~ hh]*4, [~ ~ ~ oh]*2?0.25, sh*16?0.35, ~ ~ ~ ~ ~ ~ rim ~".lastof(8, fn(p) => p.fast(2))
+  play organ prog.voicing("open").struct("~ ~ x ~ ~ ~ ~ ~ ~ ~ x ~ ~ ~ x ~")
+  automate lead.gain 0
+  automate pad.gain 0
+}
+
+section outro 16 {
+  play kick "bd*4" to 12
+  play hats "[~ hh]*4" to 12
+  play bass bassline() to 8
+  play sub subline() to 8
+  play pad prog.voicing("smooth")
+  play lead riff.legato(0.7).vel(0.55) to 8
+  automate pad.gain 0 -> -14 from 8
+}
+
+arrange intro, groove, hook1, breakdown, hook2, outro
