@@ -354,7 +354,9 @@ class Renderer:
         for n in notes:
             by_time.setdefault(round(n.time, 5), []).append(n)
         rendered = []
-        for i, t in enumerate(onsets):
+        if sung:
+            rendered = self._sung_phrases(opt, onsets, by_time, units, part)
+        for i, t in enumerate([] if sung else onsets):
             if i % part[1] != part[0]:
                 continue
             group = by_time[t]
@@ -392,6 +394,39 @@ class Renderer:
             buf[0, s:e] += up[:e - s] * math.sqrt(1 - p) * math.sqrt(2)
             buf[1, s:e] += up[:e - s] * math.sqrt(p) * math.sqrt(2)
         return downsample(buf, OS)
+
+    def _sung_phrases(self, opt, onsets, by_time, units, part):
+        """Group notes into legato phrases and sing each as one continuous performance."""
+        from . import tts
+        notes = [max(by_time[t], key=lambda n: n.pitch if n.pitch is not None else -1) for t in onsets]
+        phrases, cur = [], []
+        for i, n in enumerate(notes):
+            if cur:
+                prev = notes[i - 1]
+                if n.time - (prev.time + prev.dur) > 0.08:
+                    phrases.append(cur)
+                    cur = []
+            cur.append(i)
+        if cur:
+            phrases.append(cur)
+        out = []
+        for pi, idxs in enumerate(phrases):
+            if pi % part[1] != part[0]:
+                continue
+            t0 = notes[idxs[0]].time
+            words = [tts.speak(units[i % len(units)], opt["voice"], opt["speed"], opt["lang"]) for i in idxs]
+            spec = [((notes[i].pitch if notes[i].pitch is not None else 57) + opt["transpose"],
+                     notes[i].time - t0, max(notes[i].dur, 0.1)) for i in idxs]
+            vel = float(np.mean([notes[i].vel for i in idxs]))
+            y, lead = tts.sing_phrase(words, spec, opt["vibrato"], opt["vib_rate"], formant=opt["formant"])
+            doubled = opt["double"] > 0
+            out.append((t0 - lead, vel, y, -0.3 if doubled else 0.0))
+            if doubled:
+                spec2 = [(m + 0.06, s + 0.012, d) for m, s, d in spec]
+                y2, lead2 = tts.sing_phrase(words, spec2, opt["vibrato"] * 1.15, opt["vib_rate"] * 0.94,
+                                            formant=opt["formant"])
+                out.append((t0 - lead2, vel * opt["double"], y2, 0.3))
+        return out
 
     # -- effects & mixing -------------------------------------------------------------
 

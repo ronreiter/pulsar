@@ -77,7 +77,18 @@ def score_warnings(score) -> list[str]:
         if not notes:
             out.append(f"track {name!r} never plays")
             continue
-        if tr.inst.kind in ("drums", "sampler", "voice"):
+        if tr.inst.kind == "voice":
+            # Neural voices are re-pitched from speech; far above the speaking range they turn thin and buzzy.
+            pitched = sorted(n.pitch for n in notes if n.pitch is not None)
+            if pitched:
+                speaking = 45 if tr.inst.preset[1:2] == "m" else 55  # ~A2 male, ~G3 female
+                med = pitched[len(pitched) // 2]
+                if med - speaking > 12:
+                    out.append(f"voice track {name!r} sings around {theory.midi_name(int(med))}, more than an octave "
+                               f"above its speaking range; it will sound thin and synthetic. Lower it "
+                               f"(octave: {max(1, int(med) // 12 - 2)}) or use .oct(-1)")
+            continue
+        if tr.inst.kind in ("drums", "sampler"):
             continue
         lo = min(n.pitch for n in notes)
         hi = max(n.pitch for n in notes)

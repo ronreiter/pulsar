@@ -7,3 +7,4 @@ __pycache__/
 *.egg-info/
 samples/
 pulsar-out/
+voice_ab/

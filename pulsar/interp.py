@@ -950,7 +950,8 @@ def b_voice(interp, name="af_heart", **kw):
         raise PulsarError('voice mode must be "sung" or "speak"')
     if not opts["lyrics"].strip():
         raise PulsarError('voice() needs lyrics: voice("af_heart", lyrics: "words to sing")')
-    octave = int(mixer.pop("octave", 4))
+    # Voices sing best near their speaking range: octave 3 puts degree 0 on A3 for A minor.
+    octave = int(mixer.pop("octave", 3))
     mix = {"gain": 0.0}
     mix.update(mixer)
     return Instrument("voice", str(name), "voice", {}, {}, False, octave, mix, base_gain=-5.0, sample=opts)

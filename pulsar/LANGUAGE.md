@@ -241,6 +241,12 @@ section verse 8 {
 | `formant` | semitones of spectral-envelope shift (+ brighter / smaller, - darker / bigger) |
 | `speed`, `lang`, `transpose` | speaking rate, language code (e.g. `en-gb`), semitone offset |
 
+Keep melodies near the voice's speaking range: female voices sound best around A3-A4,
+male voices an octave lower (voices default to `octave: 3`). The further above speech a
+melody goes, the thinner and more synthetic it sounds; `pulsar check` warns past an octave.
+Notes closer than ~80 ms are sung as one continuous phrase (words crossfade, pitch glides),
+so legato melodies sound the most natural.
+
 Use your own lyrics; songs only ever contain what you write.
 
 ## Effects

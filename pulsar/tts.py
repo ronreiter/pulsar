@@ -180,3 +180,126 @@ def sing(word_audio: np.ndarray, midi: float, seconds: float, inflection: float 
                       TTS_SR, FRAME_MS).astype(np.float32)
     lead_in = first_v * FRAME_MS / 1000
     return y, min(lead_in, 0.12)
+
+
+def natural_pitch(voice: str) -> float:
+    """Median speaking pitch (Hz) of a voice, measured once from a test sentence."""
+    y = speak("The evening light falls slowly over the quiet city.", voice)
+    f0, _, _ = _analyse(_trim(y))
+    v = f0[f0 > 0]
+    return float(np.median(v)) if len(v) else 200.0
+
+
+def _word_frames(word_audio: np.ndarray, frames: int):
+    """WORLD frames for one word, time-mapped to `frames`: the leading consonant and the
+    tail keep their natural speed, the voiced core stretches. Returns (sp, ap, voiced, lead_frames)."""
+    x = _trim(word_audio)
+    f0, sp, ap = _analyse(x)
+    n = len(f0)
+    voiced = f0 > 0
+    if not voiced.any():
+        src = np.linspace(0, n - 1, max(frames, 2))
+        idx = np.rint(src).astype(int)
+        return sp[idx], ap[idx], voiced[idx], 0
+    first_v = int(np.argmax(voiced))
+    last_v = n - 1 - int(np.argmax(voiced[::-1]))
+    lead = min(first_v, int(0.12 * 1000 / FRAME_MS))
+    tail = n - 1 - last_v
+    core = max(1, last_v - first_v)
+    new_core = max(4, frames + lead - first_v - tail)
+    if new_core < core:  # shorter than spoken: compress the core, keep consonants
+        new_core = max(4, new_core)
+    src = np.concatenate([
+        np.arange(first_v, dtype=np.float64),
+        first_v + np.linspace(0, core, new_core, endpoint=False),
+        last_v + np.arange(tail + 1, dtype=np.float64),
+    ])
+    src = np.clip(src, 0, n - 1)
+    lo = np.floor(src).astype(int)
+    hi = np.minimum(lo + 1, n - 1)
+    w = (src - lo)[:, None]
+    sp2 = np.exp(np.log(sp[lo] + 1e-16) * (1 - w) + np.log(sp[hi] + 1e-16) * w)
+    ap2 = ap[lo] * (1 - w) + ap[hi] * w
+    v2 = voiced[np.rint(src).astype(int)]
+    return sp2, ap2, v2, lead
+
+
+def sing_phrase(words: list[np.ndarray], notes: list[tuple[float, float, float]], vibrato: float = 0.3,
+                vib_rate: float = 5.2, glide: float = 0.05, formant: float = 0.0) -> tuple[np.ndarray, float]:
+    """Sing a legato phrase as one continuous performance.
+
+    `notes` are (midi, start_seconds_from_phrase_start, duration). Words are joined frame by frame in
+    the WORLD domain (consonants overlap the previous word's tail with a crossfade), the pitch is one
+    continuous line with short glides between notes, and the phrase is resynthesized in one pass.
+    Returns (audio at 24 kHz, lead-in seconds before the first note)."""
+    import pyworld as pw
+    fp = FRAME_MS / 1000
+    parts = []
+    for audio, (midi, start, dur) in zip(words, notes):
+        frames = max(8, int(round(dur / fp)))
+        sp, ap, v, lead = _word_frames(audio, frames)
+        parts.append((int(round(start / fp)) - lead, sp, ap, v, midi, int(round(start / fp)), frames))
+    origin = min(p[0] for p in parts)
+    total = max(p[0] + len(p[1]) for p in parts) - origin + 1
+    bins = parts[0][1].shape[1]
+    logsp = np.zeros((total, bins))
+    apm = np.ones((total, bins))
+    wsum = np.zeros(total)
+    voiced = np.zeros(total, bool)
+    xf = int(0.03 / fp)  # 30 ms crossfades at word edges
+    for (s0, sp, ap, v, *_rest) in parts:
+        s = s0 - origin
+        n = len(sp)
+        w = np.ones(n)
+        k = min(xf, n // 3)
+        if k > 0:
+            w[:k] = np.linspace(0.05, 1, k)
+            w[-k:] = np.minimum(w[-k:], np.linspace(1, 0.05, k))
+        logsp[s:s + n] += np.log(sp + 1e-16) * w[:, None]
+        apm[s:s + n] = np.where(wsum[s:s + n, None] > 0, (apm[s:s + n] * wsum[s:s + n, None] + ap * w[:, None])
+                                / (wsum[s:s + n, None] + w[:, None]), ap)
+        wsum[s:s + n] += w
+        voiced[s:s + n] |= v
+    gap = wsum < 1e-6
+    wsum[gap] = 1
+    sp_all = np.exp(logsp / wsum[:, None])
+    sp_all[gap] = 1e-12
+    apm[gap] = 1.0
+    voiced[gap] = False
+    # one continuous pitch line: hold each note, glide into the next just before it starts
+    target = np.zeros(total)
+    marks = sorted((p[5] - origin, p[4], p[6]) for p in parts)
+    for i, (s, midi, frames) in enumerate(marks):
+        e = marks[i + 1][0] if i + 1 < len(marks) else total
+        target[s:e] = midi
+        if i == 0:
+            target[:s] = midi
+    g = max(1, int(glide / fp))
+    for i in range(1, len(marks)):
+        s = marks[i][0]
+        a, b = marks[i - 1][1], marks[i][1]
+        lo = max(0, s - g // 2)
+        hi = min(total, s + g // 2 + 1)
+        tt = np.linspace(0, 1, hi - lo)
+        target[lo:hi] = a + (b - a) * (0.5 - 0.5 * np.cos(np.pi * tt))
+    # vibrato only on held notes, fading in after 250 ms
+    vib = np.zeros(total)
+    t_all = np.arange(total) * fp
+    for i, (s, midi, frames) in enumerate(marks):
+        e = min(total, s + frames)
+        if frames * fp < 0.35:
+            continue
+        local = (np.arange(e - s)) * fp
+        env = np.clip((local - 0.25) / 0.3, 0, 1)
+        vib[s:e] = vibrato * 35 * env * np.sin(2 * np.pi * vib_rate * t_all[s:e])
+    f0 = np.where(voiced, 440.0 * 2 ** ((target - 69) / 12 + vib / 1200), 0.0)
+    if formant:
+        idx = np.clip(np.arange(bins) / (2 ** (formant / 12)), 0, bins - 1)
+        l2 = np.floor(idx).astype(int)
+        h2 = np.minimum(l2 + 1, bins - 1)
+        ww = idx - l2
+        sp_all = sp_all[:, l2] * (1 - ww) + sp_all[:, h2] * ww
+    y = pw.synthesize(np.ascontiguousarray(f0), np.ascontiguousarray(sp_all), np.ascontiguousarray(apm),
+                      TTS_SR, FRAME_MS).astype(np.float32)
+    lead_in = (marks[0][0]) * fp
+    return y, lead_in
