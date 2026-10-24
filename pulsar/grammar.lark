@@ -1,0 +1,102 @@
+// Pulsar language grammar (LALR). Newlines separate statements; they are
+// dropped inside (...) and [...] by the postlexer, so long calls can wrap.
+
+start: (stmt? _sep)* stmt?
+_sep: _NL | ";"
+block: "{" (stmt? _sep)* stmt? "}"
+
+?stmt: let_stmt
+     | assign_stmt
+     | fn_def
+     | if_stmt
+     | for_stmt
+     | repeat_stmt
+     | return_stmt
+     | setting
+     | track_stmt
+     | bus_stmt
+     | master_stmt
+     | section_stmt
+     | play_stmt
+     | mute_stmt
+     | automate_stmt
+     | arrange_stmt
+     | expr_stmt
+
+let_stmt: "let" NAME "=" expr
+assign_stmt: postfix "=" expr
+fn_def: "fn" NAME "(" [params] ")" (block | "=" expr)
+params: param ("," param)* ","?
+param: NAME ["=" expr]
+if_stmt: "if" expr block elif_clause* [else_clause]
+elif_clause: "elif" expr block
+else_clause: "else" block
+for_stmt: "for" NAME "in" expr block
+repeat_stmt: "repeat" expr block
+return_stmt: "return" [expr]
+setting: SETTING expr
+SETTING.2: /(tempo|key|swing|seed|loudness|ceiling)\b/
+track_stmt: "track" NAME "=" expr
+bus_stmt: "bus" NAME "=" expr
+master_stmt: "master" "=" expr
+section_stmt: "section" NAME [expr] ["extends" NAME] block
+play_stmt: "play" NAME expr play_opt*
+play_opt: "from" expr   -> opt_from
+        | "to" expr     -> opt_to
+        | "at" expr     -> opt_at
+mute_stmt: "mute" NAME ("," NAME)*
+automate_stmt: "automate" target expr play_opt*
+target: NAME ("." NAME)+
+      | "master" "." NAME  -> master_target
+arrange_stmt: "arrange" expr ("," expr)*
+expr_stmt: expr
+
+?expr: lambda
+?lambda: "fn" "(" [params] ")" FAT_ARROW expr  -> lambda_expr
+       | ternary
+?ternary: or_expr
+        | or_expr "if" or_expr "else" ternary -> cond
+?or_expr: and_expr ("or" and_expr)*
+?and_expr: not_expr ("and" not_expr)*
+?not_expr: "not" not_expr -> not_op
+         | compare
+?compare: chain (COMP_OP chain)*
+?chain: ramp (CHAIN_OP ramp)*
+?ramp: range (ARROW range)?
+?range: sum (RANGE_OP sum)?
+?sum: product (ADD_OP product)*
+?product: unary (MUL_OP unary)*
+?unary: ADD_OP unary -> neg
+      | postfix
+?postfix: atom
+        | postfix "(" [args] ")"         -> call
+        | postfix "." NAME               -> getattr
+        | postfix "[" expr "]"           -> index
+args: arg ("," arg)* ","?
+?arg: NAME ":" expr   -> kwarg
+    | NAME "=" expr   -> kwarg
+    | expr
+?atom: NUMBER        -> number
+     | STRING        -> string
+     | "true"        -> true
+     | "false"       -> false
+     | "none"        -> none
+     | NAME          -> name
+     | "[" [expr ("," expr)* ","?] "]" -> list
+     | "(" expr ")"
+
+CHAIN_OP.3: ">>"
+ARROW.3: "->"
+FAT_ARROW.3: "=>"
+RANGE_OP.3: ".."
+COMP_OP: "==" | "!=" | "<=" | ">=" | "<" | ">"
+ADD_OP: "+" | "-"
+MUL_OP: "*" | "/" | "%"
+NAME: /[A-Za-z_][A-Za-z0-9_]*/
+NUMBER: /\d+(\.\d+)?([eE][+-]?\d+)?/ | /\.\d+/
+STRING: /"(\\.|[^"\\\n])*"/ | /'(\\.|[^'\\\n])*'/ | /`[^`]*`/
+_NL: /(\r?\n)+/
+COMMENT: /(\/\/|#)[^\n]*/
+%ignore /[ \t\f]+/
+%ignore /\\\r?\n/
+%ignore COMMENT

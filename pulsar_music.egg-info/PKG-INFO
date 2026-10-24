@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: pulsar-music
+Version: 0.1.0
+Summary: A music language for AI: write electronic music as code, render it with studio-grade synthesis.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: dawdreamer>=0.8
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: soundfile>=0.12
+Requires-Dist: pyloudnorm>=0.1
+Requires-Dist: lark>=1.1
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.0; extra == "mcp"
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"

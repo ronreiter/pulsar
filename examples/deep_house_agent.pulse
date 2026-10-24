@@ -1,0 +1,115 @@
+// Deep house, A minor, 122 BPM
+tempo 122
+key "A minor"
+swing 0.08
+seed 3
+
+let prog = "<Am9 Dm9 Fmaj9 Em7>"
+
+track kick  = drums("house", bd_decay: 0.45, bd_gain: -2)
+  >> hp(20)
+track perc  = drums("house", hh_gain: 1, sh_gain: -3, oh_gain: -1, duck: 0.2)
+// two-layer bass: a plucky, slightly driven mid-bass for definition + a clean sine sub for weight
+track bass  = synth("moog_bass", cutoff: 0.4, resonance: 0.45, env_amount: 3.4, fdecay: 0.14, fsustain: 0.2,
+                    decay: 0.3, sustain: 0.6, release: 0.07, drive: 0.45, width: 0, duck: 0.6, gain: 3)
+  >> hp(80) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
+track sub   = synth("sub", width: 0, duck: 0.65, gain: -4)
+track chord = synth("chord", duck: 0.5, reverb: 0.25, delay: 0.1, pan: -0.2, gain: -1)
+  >> hp(180)
+  >> filter(0.5)
+// the lead: one clean sawtooth through a state-variable filter that opens with a quick blip,
+// warm sustain, no unison or chorus (patch fitted to a reference lead's timbre with `pulsar timbre`)
+track keys  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.13, resonance: 0.29,
+                     env_amount: 5.0, fdecay: 0.12, fsustain: 0.75, attack: 0.004, decay: 0.19, sustain: 0.73,
+                     release: 0.35, drive: 0.1, octave: 3, duck: 0.3, reverb: 0.3, delay: 0.18, pan: 0.15, gain: 4.5)
+  >> hp(220)
+track pad   = synth("pad", duck: 0.6, reverb: 0.4, gain: -4)
+  >> hp(200)
+track rise  = synth("noise_sweep", reverb: 0.3, gain: 5)
+track boom  = synth("impact", gain: 3)
+
+// --- drum patterns
+let hats  = "[~ hh]*4"
+let groove = "~ cp ~ cp, [~ hh]*4, sh*16?0.2, ~ ~ ~ [~ oh]"
+let fill  = "~ cp ~ [cp cp], [~ hh]*4, [~ ~ ~ ~ ~ ~ mt lt]"
+
+// --- bassline: one bar per chord, roots a d f e
+// the sub follows the chord roots in the bassline's rhythm
+let subline = "<a1 d2 f1 e1>".struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.85)
+let bassline = "<[a1 ~ ~ a1 ~ ~ a2 ~ ~ a1 ~ ~ c2 ~ a1 ~] [d2 ~ ~ d2 ~ ~ d3 ~ ~ d2 ~ ~ f2 ~ d2 ~] [f1 ~ ~ f1 ~ ~ f2 ~ ~ f1 ~ ~ a1 ~ c2 ~] [e1 ~ ~ e1 ~ ~ e2 ~ ~ e1 ~ g1 ~ b1 ~ e1 ~]>"
+
+section intro 8 {
+  play kick "bd*4"
+  play perc hats
+  play pad prog
+  automate pad.cutoff 0.25 -> 0.45
+  automate pad.gain -11 -> -4
+  automate kick.hp.freq ramp(400, 20, "exp")
+}
+
+section groove_in 8 extends intro {
+  mute perc
+  play perc groove
+  automate pad.gain -4
+  play chord prog.struct("~ x ~ ~ ~ x ~ ~").legato(0.5)
+  automate chord.filter.cutoff 0.3 -> 0.6
+}
+
+section build 8 extends groove_in {
+  play bass bassline.mask("<0 0 0 0 1 1 1 1>")
+  play sub subline.mask("<0 0 0 0 1 1 1 1>")
+  play rise "a4/4" from 4
+  automate chord.filter.cutoff 0.6 -> 0.85
+  automate perc.gain -3 -> 0
+}
+
+section drop 16 extends groove_in {
+  mute perc, chord
+  play perc groove.lastof(8, fn(p) => fill)
+  play bass bassline
+  play sub subline
+  play chord prog.struct("~ x ~ ~ ~ x ~ x").legato(0.5)
+  play keys prog.arp("up", 1/8, 1).degrade(0.2)
+  play boom "a1" at 0
+  automate chord.filter.cutoff lfo(period: 4, min: 0.55, max: 0.8)
+}
+
+section breakdown 16 {
+  play pad prog
+  play keys prog.arp("updown", 1/16, 2).vel("0.7 0.5")
+  play perc "sh*8?0.3" from 8
+  automate pad.cutoff 0.3 -> 0.6
+  automate keys.reverb 0.3 -> 0.6
+}
+
+section build2 8 extends breakdown {
+  mute perc
+  play perc "sh*16?0.2, [~ hh]*4" from 4
+  play kick "bd*4" from 6 to 7
+  play kick "bd*8" at 7
+  automate pad.gain -4 -> -13 from 4
+  play rise "a4/8"
+  play chord prog.struct("~ x ~ ~ ~ x ~ ~").legato(0.5)
+  automate chord.filter.cutoff 0.3 -> 0.9
+}
+
+section drop2 16 extends drop {
+  mute chord, perc
+  play chord prog.struct("~ x ~ x ~ x ~ x").legato(0.5)
+  play perc "~ cp ~ cp, [~ hh]*4, hh*16?0.4, ~ ~ ~ [~ oh], ~ rd ~ rd".lastof(4, fn(p) => fill)
+  automate pad.gain -2
+}
+
+section outro 16 {
+  play kick "bd*4" to 12
+  play perc hats to 12
+  play pad prog
+  play bass bassline to 4
+  play sub subline to 4
+  automate pad.cutoff 0.5 -> 0.2
+  automate kick.hp.freq ramp(20, 300, "exp") from 6 to 12
+  automate perc.gain -3 -> -12 from 4 to 12
+  automate pad.gain -4 -> -19 from 8
+}
+
+arrange intro, groove_in, build, drop, breakdown, build2, drop2, outro

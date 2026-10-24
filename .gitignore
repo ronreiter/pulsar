@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.wav
+*.mp3
+!docs/assets/*.mp3
+.pytest_cache/
+*.egg-info/
+samples/
+pulsar-out/

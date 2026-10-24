@@ -1,0 +1,42 @@
+[project]
+name = "pulsar-music"
+version = "0.1.0"
+description = "A music language for AI: write electronic music as code, render it with studio-grade synthesis."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+keywords = ["music", "synthesizer", "dsl", "ai", "electronic-music", "faust", "live-coding"]
+classifiers = [
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
+  "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://ronreiter.github.io/pulsar/"
+Repository = "https://github.com/ronreiter/pulsar"
+dependencies = [
+  "dawdreamer>=0.8",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "soundfile>=0.12",
+  "pyloudnorm>=0.1",
+  "lark>=1.1",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+pulsar = "pulsar.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["pulsar", "pulsar.dsp"]
+
+[tool.setuptools.package-data]
+pulsar = ["grammar.lark", "LANGUAGE.md"]
