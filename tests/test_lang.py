@@ -179,3 +179,27 @@ def test_sampler_missing_file():
     with pytest.raises(PulsarError) as e:
         score('track v = sampler("nope.wav")')
     assert "not found" in e.value.msg
+
+
+def test_voice_lyrics_follow_notes():
+    from pulsar import tts
+    song, _ = run(BASE + '''
+track v = voice("af_heart", lyrics: "one two / three")
+section a 1 { play v "a4 c5 e5 ~" }
+''')
+    sc = compile_song(song)
+    assert [n.pitch for n in sc.notes["v"]] == [69, 72, 76]
+    assert tts.lyric_units("one two / three") == ["one", "two", "three"]
+    assert tts.lyric_lines("one two / three") == ["one two", "three"]
+
+
+@pytest.mark.skipif(not __import__("pathlib").Path.home().joinpath(".cache/pulsar/models/kokoro/kokoro-v1.0.onnx").exists(),
+                    reason="voice model not downloaded")
+def test_sung_word_hits_its_pitch():
+    import numpy as np
+    import pyworld as pw
+    from pulsar import tts
+    y, lead = tts.sing(tts.speak("light", "af_heart"), 72, 0.8)
+    f0, t = pw.harvest(y.astype(np.float64), tts.TTS_SR, f0_floor=100, f0_ceil=900, frame_period=5)
+    mid = f0[(t > lead + 0.1) & (t < 0.6)]
+    assert abs(np.median(mid[mid > 0]) - 523.25) < 10

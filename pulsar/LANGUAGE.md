@@ -211,6 +211,38 @@ Any other word as a step (`"x ~ x ~"`) plays the sample as recorded. Mixer setti
 the presets; `gain` is relative to that. Only use audio you have the rights to;
 `python tools/make_vox.py` writes original synthesized sung vowels (`samples/vox_aah_a4.wav`, `samples/vox_ooh_a4.wav`) to try it with.
 
+## Voices (neural text-to-speech)
+
+`voice("af_heart", lyrics: "...")` is a singer or narrator built on the Kokoro-82M
+text-to-speech model (runs locally; the ~350 MB model downloads on first use; install with
+`pip install 'pulsar-music[voice]'`). `pulsar voices` lists the 54 voices
+(`af_*` American female, `am_*` American male, `bf_*` / `bm_*` British, plus other languages).
+
+```
+track vocal = voice("af_heart", lyrics: "under amber city lights / we keep moving through the night",
+                    double: 0.5, reverb: 0.4) >> eq(mid: 3, mid_freq: 3000)
+section verse 8 {
+  play vocal "<[0 ~ 2 ~ 4 ~ 2 ~] [0 0 ~ 2 ~ 4 2 0]>".legato(0.9)
+}
+```
+
+* **`mode: "sung"`** (default): every note sings the next lyric word, in song order, cycling.
+  The spoken word is re-pitched onto the note with the WORLD vocoder (formants preserved),
+  its vowel stretched to the note length and its consonant placed just before the beat.
+  Chords sing on their top note. Write each line's word count to match the phrase's notes.
+* **`mode: "speak"`**: every hit (`"x ~ ~ ~"`) speaks the next lyric line (split lines with `/`).
+
+| setting | meaning |
+|---|---|
+| `lyrics` | the words; `/` or newlines separate lines |
+| `double` | 0-1: add a second, slightly detuned and late take panned opposite (fuller, more produced) |
+| `vibrato`, `vib_rate` | vibrato depth (0-1, fades in after the attack) and rate in Hz |
+| `inflection` | how much of the spoken pitch contour survives (0 = perfectly flat, 0.15 default) |
+| `formant` | semitones of spectral-envelope shift (+ brighter / smaller, - darker / bigger) |
+| `speed`, `lang`, `transpose` | speaking rate, language code (e.g. `en-gb`), semitone offset |
+
+Use your own lyrics; songs only ever contain what you write.
+
 ## Effects
 
 Chain after an instrument with `>>`. The first positional argument is shown in bold.

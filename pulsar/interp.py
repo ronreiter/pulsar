@@ -927,6 +927,35 @@ def b_sampler(interp, path, **kw):
     return Instrument("sampler", p.name, "sampler", {}, {}, False, octave, mix, base_gain=-6.0, sample=opts)
 
 
+VOICE_KEYS = {"lyrics", "mode", "speed", "inflection", "vibrato", "vib_rate", "formant", "double", "lang", "transpose"}
+
+
+def b_voice(interp, name="af_heart", **kw):
+    """A neural text-to-speech voice that sings (one lyric word per note) or speaks (one line per hit)."""
+    opts = {"voice": str(name), "lyrics": "", "mode": "sung", "speed": 1.0, "inflection": 0.15, "vibrato": 0.35,
+            "vib_rate": 5.4, "formant": 0.0, "double": 0.0, "lang": "en-us", "transpose": 0.0}
+    mixer = {}
+    for k, v in kw.items():
+        if k in presets.MIXER_KEYS or k in interp.song.buses:
+            mixer[k] = v
+        elif k in ("lyrics", "mode", "lang"):
+            if not isinstance(v, str):
+                raise PulsarError(f"voice {k} takes a string")
+            opts[k] = str(v)
+        elif k in VOICE_KEYS:
+            opts[k] = float(num(v, None, k))
+        else:
+            raise PulsarError(f"voice() has no parameter {k!r}", hint=suggest(k, list(VOICE_KEYS) + list(presets.MIXER_KEYS)))
+    if opts["mode"] not in ("sung", "speak"):
+        raise PulsarError('voice mode must be "sung" or "speak"')
+    if not opts["lyrics"].strip():
+        raise PulsarError('voice() needs lyrics: voice("af_heart", lyrics: "words to sing")')
+    octave = int(mixer.pop("octave", 4))
+    mix = {"gain": 0.0}
+    mix.update(mixer)
+    return Instrument("voice", str(name), "voice", {}, {}, False, octave, mix, base_gain=-5.0, sample=opts)
+
+
 def b_drums(interp, kit="909", **kw):
     k = presets.KITS.get(str(kit))
     if k is None:
@@ -1062,7 +1091,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice,
     "seq": b_seq, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,

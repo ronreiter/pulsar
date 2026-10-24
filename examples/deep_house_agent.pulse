@@ -24,9 +24,16 @@ track keys  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cuto
                      release: 0.35, drive: 0.1, octave: 3, duck: 0.3, reverb: 0.3, delay: 0.18, pan: 0.15, gain: 4.5)
   >> hp(220)
 track pad   = synth("pad", duck: 0.6, reverb: 0.4, gain: -4)
-  >> hp(200)
+  >> hp(300)
+// a sung vocal: neural text-to-speech, one lyric word per note, doubled for width
+track vocal = voice("af_heart", lyrics: "under amber city lights / we keep moving through the night / every heartbeat sounds like home",
+                    double: 0.5, reverb: 0.45, delay: 0.18, duck: 0.2, gain: 2)
+  >> hp(150) >> eq(mid: 3, mid_freq: 3000, mid_q: 0.8, high: 1.5)
 track rise  = synth("noise_sweep", reverb: 0.3, gain: 5)
 track boom  = synth("impact", gain: 3)
+
+// --- vocal melody: one bar per lyric line, a breath on the fourth
+let melody = "<[0 ~ 2 ~ 4 ~ 2 ~] [0 0 ~ 2 ~ 4 2 0] [4 ~ 5 ~ 4 2 ~ 0] ~>".legato(0.92)
 
 // --- drum patterns
 let hats  = "[~ hh]*4"
@@ -76,6 +83,9 @@ section drop 16 extends groove_in {
 
 section breakdown 16 {
   play pad prog
+  play vocal melody from 8
+  automate vocal.gain -4
+  automate keys.gain -5
   play keys prog.arp("updown", 1/16, 2).vel("0.7 0.5")
   play perc "sh*8?0.3" from 8
   automate pad.cutoff 0.3 -> 0.6
@@ -83,6 +93,7 @@ section breakdown 16 {
 }
 
 section build2 8 extends breakdown {
+  automate keys.gain -5 -> 0
   mute perc
   play perc "sh*16?0.2, [~ hh]*4" from 4
   play kick "bd*4" from 6 to 7
@@ -94,6 +105,8 @@ section build2 8 extends breakdown {
 }
 
 section drop2 16 extends drop {
+  play vocal melody
+  automate vocal.gain 0
   mute chord, perc
   play chord prog.struct("~ x ~ x ~ x ~ x").legato(0.5)
   play perc "~ cp ~ cp, [~ hh]*4, hh*16?0.4, ~ ~ ~ [~ oh], ~ rd ~ rd".lastof(4, fn(p) => fill)

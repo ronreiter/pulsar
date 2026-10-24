@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]
+voice = ["kokoro-onnx>=0.4", "pyworld>=0.3.4", "setuptools<70"]
 dev = ["pytest>=7"]
 
 [project.scripts]

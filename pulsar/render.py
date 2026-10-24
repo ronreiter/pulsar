@@ -332,6 +332,67 @@ class Renderer:
                 buf[:, s:e] += out[:, :e - s] * (level * nt.vel / 0.8)
         return downsample(buf, OS)
 
+    # -- voices ------------------------------------------------------------------------
+
+    def render_voice(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
+        """Sung: each note takes the next lyric word, re-pitched and stretched onto it.
+        Spoken: each hit speaks the next lyric line. Lyrics advance in song order."""
+        from fractions import Fraction as Fr
+        from scipy.signal import resample_poly
+        from . import tts
+        opt = tr.inst.sample
+        n_int = n_out * OS
+        buf = np.zeros((2, n_int), np.float32)
+        ups = Fr(INTERNAL_SR, tts.TTS_SR)
+        # one lyric unit per onset (a chord's notes share one word, the top note sings it)
+        onsets = sorted({round(n.time, 5) for n in notes})
+        sung = opt["mode"] == "sung"
+        units = tts.lyric_units(opt["lyrics"]) if sung else tts.lyric_lines(opt["lyrics"])
+        if not units:
+            return downsample(buf, OS)
+        by_time: dict = {}
+        for n in notes:
+            by_time.setdefault(round(n.time, 5), []).append(n)
+        rendered = []
+        for i, t in enumerate(onsets):
+            if i % part[1] != part[0]:
+                continue
+            group = by_time[t]
+            note = max(group, key=lambda n: n.pitch if n.pitch is not None else -1)
+            text = units[i % len(units)]
+            spoken = tts.speak(text, opt["voice"], opt["speed"], opt["lang"])
+            if sung:
+                midi = (note.pitch if note.pitch is not None else 69) + opt["transpose"]
+                y, lead = tts.sing(spoken, midi, max(note.dur, 0.12), opt["inflection"], opt["vibrato"],
+                                   opt["vib_rate"], opt["formant"])
+            else:
+                y, lead = tts._trim(spoken), 0.0
+            doubled = opt["double"] > 0 and sung
+            rendered.append((t - lead, note.vel, y, -0.35 if doubled else 0.0))
+            if doubled:  # a second take: slightly sharp, a touch late, its own vibrato, panned opposite
+                y2, lead2 = tts.sing(spoken, midi + 0.08, max(note.dur, 0.12), opt["inflection"] * 1.3,
+                                     opt["vibrato"] * 1.2, opt["vib_rate"] * 0.93, opt["formant"])
+                rendered.append((t - lead2 + 0.018, note.vel * opt["double"], y2, 0.35))
+        if not rendered:
+            return downsample(buf, OS)
+        # level: loudest 200 ms of the sung material to the reference, like every other instrument
+        cat = np.concatenate([y for _, _, y, _ in rendered])
+        win = int(0.2 * tts.TTS_SR)
+        sq = cat.astype(np.float64) ** 2
+        c = np.concatenate([[0], np.cumsum(sq)])
+        mom = (c[win:] - c[:-win]) / win if len(sq) > win else np.array([sq.mean()])
+        level = 10 ** (REF_MOMENTARY_DB / 20) / max(np.sqrt(float(mom.max())), 1e-7)
+        for t, vel, y, pan in rendered:
+            up = resample_poly(y, ups.numerator, ups.denominator).astype(np.float32) * (level * vel / 0.8)
+            s = int(round(max(t, 0) * INTERNAL_SR))
+            e = min(n_int, s + len(up))
+            if e <= s:
+                continue
+            p = pan * 0.5 + 0.5  # constant-power pan
+            buf[0, s:e] += up[:e - s] * math.sqrt(1 - p) * math.sqrt(2)
+            buf[1, s:e] += up[:e - s] * math.sqrt(p) * math.sqrt(2)
+        return downsample(buf, OS)
+
     # -- effects & mixing -------------------------------------------------------------
 
     def effect_params(self, eff) -> dict:
@@ -429,6 +490,8 @@ class Renderer:
             return self.render_drums(tr, notes, n, part)[:, :n]
         if tr.inst.kind == "sampler":
             return self.render_sampler(tr, notes, n, part)[:, :n]
+        if tr.inst.kind == "voice":
+            return self.render_voice(tr, notes, n, part)[:, :n]
         return self.render_synth(tr, notes, n, part)[:, :n]
 
     def post_audio(self, name: str, audio: np.ndarray) -> np.ndarray:
@@ -451,6 +514,8 @@ class Renderer:
         notes = self.score.notes.get(name, [])
         if tr.inst.kind in ("drums", "sampler"):
             return len(notes) * 0.02
+        if tr.inst.kind == "voice":
+            return len(notes) * 0.4
         uni = int(tr.inst.shape.get("unison", 1))
         rel = float(tr.inst.params.get("release", 0.3))
         return sum(nt.dur + rel for nt in notes) * (1 + uni)

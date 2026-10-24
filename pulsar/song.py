@@ -240,8 +240,8 @@ def compile_song(song: Song) -> Score:
             end = sec.bars if play.end is None else min(play.end, sec.bars)
             if end <= start:
                 continue
-            kind = {"drums": "drums", "sampler": "slices" if inst.sample.get("slices") else "sample"}.get(
-                inst.kind, "melodic")
+            kind = {"drums": "drums", "sampler": "slices" if inst.sample.get("slices") else "sample",
+                    "voice": "sample"}.get(inst.kind, "melodic")
             ctx = Ctx(kind=kind, key_pc=key_pc, scale=tuple(scale),
                       octave=int(track.mixer.get("octave", inst.octave)),
                       seed=song.seed * 7919 + idx * 104729 + pi * 31)
@@ -268,7 +268,7 @@ def compile_song(song: Song) -> Score:
                 ctrl = {k: v for k, v in ev.v.items() if k in ("slide", "accent", "slice")}
                 if inst.kind == "drums":
                     notes[play.track].append(Note(b * bar, d, None, ev.v["drum"], vel, ctrl, b))
-                elif inst.kind == "sampler":
+                elif inst.kind in ("sampler", "voice"):
                     for n in ev.v.get("notes") or [None]:
                         notes[play.track].append(Note(b * bar, d, None if n is None else float(n), None, vel, ctrl, b))
                 else:

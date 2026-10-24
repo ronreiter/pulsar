@@ -67,6 +67,8 @@ by note at 96 kHz and placed sample-exactly:
 - band-limited oscillators with unison and analog drift; Moog ladder, TB-303 diode,
   Korg MS-20 and Oberheim SEM filter models; FM and Karplus-Strong engines;
 - 14 synthesized drum voices in 5 kits, a sampler (pitch / slice / gate / fit);
+- neural singing and speaking voices (Kokoro-82M, 54 voices, local): lyrics sung one word
+  per note, re-pitched with the WORLD vocoder so formants stay natural, optionally doubled;
 - Zita reverb, ping-pong delay, chorus, saturation, EQ, compression, sidechain ducking;
 - glue compression, a 4× oversampled soft clipper and a true-peak limiter to a LUFS target.
 
@@ -84,8 +86,10 @@ Python 3.10+ (macOS or Linux), ffmpeg for MP3 export.
 
 ```sh
 git clone https://github.com/ronreiter/pulsar && cd pulsar
-uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[mcp,dev]"
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[mcp,voice,dev]"
 ```
+
+The `voice` extra adds the text-to-speech singer; its model (~350 MB) downloads on first use.
 
 ## Use
 
@@ -97,6 +101,7 @@ pulsar render song.pulse -o song.mp3            # 320 kbps MP3 (--mp3 writes bot
 pulsar render song.pulse --only drop            # one section, for fast iteration
 pulsar render song.pulse --stems stems/         # per-track stems
 pulsar presets / pulsar params                  # sounds and every parameter
+pulsar voices                                   # the singing / speaking voices
 pulsar compare mine.wav reference.wav           # sonic profile side by side
 pulsar match song.pulse reference.wav           # tune a master EQ toward a reference
 pulsar timbre recording.wav --register c3-c5    # fit a synth patch to a recording's timbre

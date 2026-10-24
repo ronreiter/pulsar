@@ -184,6 +184,18 @@ def cmd_timbre(args):
     return 0
 
 
+def cmd_voices(args):
+    from . import tts
+    names = tts.voices()
+    groups = {"af": "American female", "am": "American male", "bf": "British female", "bm": "British male"}
+    for prefix, label in groups.items():
+        print(f"{label:16} " + " ".join(n for n in names if n.startswith(prefix + "_")))
+    other = [n for n in names if n[:2] not in groups]
+    if other:
+        print(f"{'other languages':16} " + " ".join(other))
+    return 0
+
+
 def cmd_presets(args):
     from . import presets
 
@@ -275,6 +287,7 @@ def main(argv=None):
     tb.add_argument("--rounds", type=int, default=4)
     tb.add_argument("-o", "--output", help="write the matched patch playing a test phrase")
     tb.set_defaults(fn=cmd_timbre)
+    sub.add_parser("voices", help="list the text-to-speech voices for voice()").set_defaults(fn=cmd_voices)
     p = sub.add_parser("presets", help="list synth presets and drum kits")
     p.add_argument("name", nargs="?")
     p.set_defaults(fn=cmd_presets)
