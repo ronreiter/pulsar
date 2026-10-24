@@ -29,6 +29,8 @@ struct EditorView: NSViewRepresentable {
         tv.backgroundColor = Theme.editorBG
         tv.insertionPointColor = .white
         tv.textContainerInset = NSSize(width: 6, height: 8)
+        tv.usesFindBar = true  // the inline find bar (⌘F), like TextEdit and Xcode
+        tv.isIncrementalSearchingEnabled = true
         tv.string = text
         // Lay text out across the full width and keep it there as the split view resizes.
         tv.minSize = NSSize(width: 0, height: 0)
@@ -47,6 +49,8 @@ struct EditorView: NSViewRepresentable {
         scroll.rulersVisible = true
         context.coordinator.textView = tv
         context.coordinator.ruler = ruler
+        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.find(_:)),
+                                               name: .pulsarFind, object: nil)
         Highlighter.apply(to: tv, errorLine: errorLine)
         return scroll
     }
@@ -92,6 +96,16 @@ struct EditorView: NSViewRepresentable {
         var needsHighlight = false
 
         init(_ parent: EditorView) { self.parent = parent }
+
+        /// Menu commands post this with an NSTextFinder.Action; route it to the editor even if
+        /// the arrangement currently has focus.
+        @objc func find(_ note: Notification) {
+            guard let tv = textView, let action = note.object as? NSTextFinder.Action else { return }
+            tv.window?.makeFirstResponder(tv)
+            let item = NSMenuItem()
+            item.tag = action.rawValue
+            tv.performTextFinderAction(item)
+        }
 
         func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
@@ -234,4 +248,14 @@ final class LineNumberRuler: NSRulerView {
             if idx >= ns.length { break }
         }
     }
+}
+
+
+extension Notification.Name {
+    static let pulsarFind = Notification.Name("PulsarFind")
+}
+
+/// Ask the editor to run a find action (show the find bar, find next, ...).
+func pulsarFind(_ action: NSTextFinder.Action) {
+    NotificationCenter.default.post(name: .pulsarFind, object: action)
 }

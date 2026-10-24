@@ -24,6 +24,14 @@ struct PulsarStudioApp: App {
                 Button("Save") { model.save() }.keyboardShortcut("s")
                 Button("Save As…") { model.saveAs() }.keyboardShortcut("s", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .textEditing) {
+                Divider()
+                Button("Find…") { pulsarFind(.showFindInterface) }.keyboardShortcut("f")
+                Button("Find and Replace…") { pulsarFind(.showReplaceInterface) }.keyboardShortcut("f", modifiers: [.command, .option])
+                Button("Find Next") { pulsarFind(.nextMatch) }.keyboardShortcut("g")
+                Button("Find Previous") { pulsarFind(.previousMatch) }.keyboardShortcut("g", modifiers: [.command, .shift])
+                Button("Use Selection for Find") { pulsarFind(.setSearchString) }.keyboardShortcut("e")
+            }
             CommandMenu("Song") {
                 Button("Play / Pause") { model.togglePlay() }.keyboardShortcut("r")
                 Button("Stop") { model.stop() }.keyboardShortcut(".")

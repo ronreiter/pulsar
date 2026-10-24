@@ -125,9 +125,9 @@ and a playhead that lights up notes as they sound. The song recompiles as you ty
 app/build_app.sh && open "app/build/Pulsar Studio.app"    # needs only the Xcode command line tools
 ```
 
-⌘R play / pause · ⌘. stop · ⌘⇧R re-render · ⌘= / ⌘- zoom time (pinch, ⌘-scroll) ·
+⌘R play / pause · ⌘. stop · ⌘⇧R re-render · ⌘F find (⌥⌘F replace, ⌘G next) · ⌘= / ⌘- zoom time (pinch, ⌘-scroll) ·
 ⌥⌘= / ⌥⌘- stretch lanes (⌥-pinch, ⌥-scroll) · ⌘0 reset zoom · click the ruler to seek ·
-click a track header to jump to its line.
+click a track header to jump to its line. Auto-follow pauses for 10 s whenever you scroll by hand.
 
 ### MCP
 

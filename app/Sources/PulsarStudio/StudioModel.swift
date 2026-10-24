@@ -165,7 +165,10 @@ final class StudioModel: ObservableObject {
         let proc = CLI.start(["render", path, "--stdin", "-o", tmp.path], stdin: src) { [weak self] line in
             Task { @MainActor in
                 if line.contains("rendered ") || line.contains("rendering ") {
-                    self?.renderStatus = line.trimmingCharacters(in: .whitespaces)
+                    // show the file name, never the full local path
+                    var text = line.trimmingCharacters(in: .whitespaces)
+                    if let range = text.range(of: path) { text.replaceSubrange(range, with: (path as NSString).lastPathComponent) }
+                    self?.renderStatus = text
                 }
             }
         } completion: { [weak self] status, stderr in
