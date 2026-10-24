@@ -11,9 +11,9 @@ track kick  = drums("house", bd_decay: 0.45, bd_gain: -2)
 track perc  = drums("house", hh_gain: 1, sh_gain: -3, oh_gain: -1, duck: 0.2)
 // two-layer bass: a plucky, slightly driven mid-bass for definition + a clean sine sub for weight
 track bass  = synth("moog_bass", cutoff: 0.4, resonance: 0.45, env_amount: 3.4, fdecay: 0.14, fsustain: 0.2,
-                    decay: 0.3, sustain: 0.6, release: 0.07, drive: 0.45, width: 0, duck: 0.6, gain: 3)
+                    decay: 0.3, sustain: 0.6, release: 0.07, drive: 0.45, width: 0, duck: 0.6, gain: 6)
   >> hp(80) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
-track sub   = synth("sub", width: 0, duck: 0.65, gain: -4)
+track sub   = synth("sub", width: 0, duck: 0.65, gain: -2)
 track chord = synth("chord", duck: 0.5, reverb: 0.25, delay: 0.1, pan: -0.2, gain: -1)
   >> hp(180)
   >> filter(0.5)
