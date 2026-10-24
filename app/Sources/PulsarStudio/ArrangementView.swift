@@ -84,6 +84,8 @@ func buildLanes(_ score: ScoreData, scale: CGFloat = 1) -> [Lane] {
 final class ArrangementState: ObservableObject {
     @Published var offset = CGPoint.zero  // x in points of timeline, y in points of lanes
     @Published var hoverInfo = ""
+    /// When the user last scrolled or zoomed by hand; auto-follow waits 10 s after that.
+    var lastManualScroll = Date.distantPast
 }
 
 struct ArrangementView: View {
@@ -116,6 +118,7 @@ struct ArrangementView: View {
                 }
                 InputCatcher(
                     onScroll: { dx, dy, zoom, vzoom, loc in
+                        if dx != 0 || zoom { state.lastManualScroll = Date() }
                         if vzoom {
                             stretch(by: 1 + dy * 0.01, at: loc.y)
                         } else if zoom {
@@ -126,6 +129,7 @@ struct ArrangementView: View {
                         }
                     },
                     onMagnify: { f, vertical, loc in
+                        if !vertical { state.lastManualScroll = Date() }
                         if vertical { stretch(by: 1 + f, at: loc.y) } else { zoomAround(x: loc.x, factor: 1 + f, width: geo.size.width) }
                     },
                     onClick: { loc in click(at: loc, lanes: lanes) },
@@ -144,6 +148,8 @@ struct ArrangementView: View {
             .background(Palette.bg)
             .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { _ in
                 guard model.isPlaying, model.followPlayhead else { return }
+                // Scrolling by hand takes over; following resumes after 10 s without manual scrolling.
+                guard Date().timeIntervalSince(state.lastManualScroll) > 10 else { return }
                 let x = CGFloat(model.playheadBar()) * model.pixelsPerBar
                 let visible = geo.size.width - Self.headerW
                 if x < offset.x || x > offset.x + visible * 0.85 {

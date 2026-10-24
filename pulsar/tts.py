@@ -225,7 +225,7 @@ def _word_frames(word_audio: np.ndarray, frames: int):
 
 
 def sing_phrase(words: list[np.ndarray], notes: list[tuple[float, float, float]], vibrato: float = 0.3,
-                vib_rate: float = 5.2, glide: float = 0.05, formant: float = 0.0) -> tuple[np.ndarray, float]:
+                vib_rate: float = 5.2, glide: float = 0.07, formant: float = 0.0) -> tuple[np.ndarray, float]:
     """Sing a legato phrase as one continuous performance.
 
     `notes` are (midi, start_seconds_from_phrase_start, duration). Words are joined frame by frame in
@@ -292,7 +292,27 @@ def sing_phrase(words: list[np.ndarray], notes: list[tuple[float, float, float]]
         local = (np.arange(e - s)) * fp
         env = np.clip((local - 0.25) / 0.3, 0, 1)
         vib[s:e] = vibrato * 35 * env * np.sin(2 * np.pi * vib_rate * t_all[s:e])
-    f0 = np.where(voiced, 440.0 * 2 ** ((target - 69) / 12 + vib / 1200), 0.0)
+    # Human touches: scoop up into notes that start a phrase or follow a gap, a slow pitch drift,
+    # and a loudness swell on held notes that tapers at the end.
+    rng = np.random.default_rng(int(sum(m for _, m, _ in marks) * 1000) % (2 ** 32))
+    cents = vib.copy()
+    for i, (s, midi, frames) in enumerate(marks):
+        legato_in = i > 0 and abs(marks[i - 1][1] - midi) > 0 and s - (marks[i - 1][0] + marks[i - 1][2]) < 3
+        if not legato_in:
+            k = min(int(0.09 / fp), frames)
+            cents[s:s + k] += -70 * (1 - np.linspace(0, 1, k)) ** 2
+    drift = np.convolve(rng.normal(0, 1, total + 200), np.hanning(120) / np.hanning(120).sum(), "same")[100:100 + total]
+    cents += 8 * drift / (np.abs(drift).max() + 1e-9)
+    f0 = np.where(voiced, 440.0 * 2 ** ((target - 69) / 12 + cents / 1200), 0.0)
+    gain = np.ones(total)
+    for s, midi, frames in marks:
+        e = min(total, s + frames)
+        n = e - s
+        if n < 6:
+            continue
+        x = np.linspace(0, 1, n)
+        gain[s:e] *= (0.82 + 0.18 * np.minimum(x * 3, 1)) * np.where(x > 0.85, 1 - (x - 0.85) / 0.15 * 0.5, 1)
+    sp_all = sp_all * (gain ** 2)[:, None]
     if formant:
         idx = np.clip(np.arange(bins) / (2 ** (formant / 12)), 0, bins - 1)
         l2 = np.floor(idx).astype(int)
