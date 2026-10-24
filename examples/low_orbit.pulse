@@ -1,40 +1,47 @@
 // Low Orbit: melodic techno, F# minor, 124 BPM.
-// A rolling bass, an acid line that slowly opens, a pulsing arpeggio, and a clean reverb-soaked
-// saw lead that only arrives at the climax.
+// A rolling bass between the kicks, an acid line that follows the chords and slowly opens,
+// a pulsing arpeggio, and a clean saw lead that arrives at the climax.
 tempo 124
 key "F# minor"
 seed 33
 loudness -9.5
 
-bus reverb = reverb(decay: 5, size: 0.9, damp: 0.45, predelay: 0.03, lowcut: 250)
-bus delay  = delay(3/16, feedback: 0.45, tone: 0.4)
+bus reverb = reverb(decay: 4.2, size: 0.85, damp: 0.45, predelay: 0.03, lowcut: 300)
+bus delay  = delay(3/16, feedback: 0.4, tone: 0.45)
 
 // ---- sounds -------------------------------------------------------------------
-track kick  = drums("techno", bd_decay: 0.5, bd_tune: 46, bd_gain: -10)
-track hats  = drums("techno", hh_decay: 0.035, hh_gain: 3, oh_decay: 0.28, oh_gain: -1, rd_gain: -6, cr_gain: -3, reverb: 0.08)
-track perc  = drums("techno", cp_gain: -2, rim_gain: -5, reverb: 0.25)
-track bass  = synth("bass", cutoff: 0.28, resonance: 0.3, decay: 0.18, sustain: 0.3, release: 0.05, drive: 0.3,
-                    width: 0, duck: 0.7, gain: -1)
-track acid  = synth("acid", cutoff: 0.18, resonance: 0.75, duck: 0.5, delay: 0.2, gain: -11) >> drive(0.2)
-track arp   = synth("pluck", reverb: 0.35, delay: 0.3, duck: 0.4, pan: 0.15, gain: -2, octave: 3) >> hp(300)
-track pad   = synth("dark_pad", reverb: 0.55, duck: 0.6, width: 1.5, gain: -2) >> hp(220) >> chorus(0.3)
-track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.16, resonance: 0.28,
+// kick tuned above the bass and kept short so the rolling bass sits between hits
+track kick  = drums("techno", bd_tune: 52, bd_decay: 0.32, bd_punch: 3.6, bd_drive: 0.35, bd_gain: -7)
+// bright, audible tops (the dark default techno hat disappears in a dense mix)
+track hats  = drums("909", hh_decay: 0.05, hh_tone: 0.75, hh_gain: 3, oh_decay: 0.3, oh_gain: -2,
+                    rd_gain: -4, cr_gain: -4, sh_gain: -4, reverb: 0.08)
+track perc  = drums("techno", cp_gain: -3, rim_gain: -6, reverb: 0.25)
+track crash = drums("909", cr_gain: -3, reverb: 0.3)
+track bass  = synth("bass", cutoff: 0.3, resonance: 0.3, decay: 0.16, sustain: 0.25, release: 0.04, drive: 0.3,
+                    width: 0, duck: 0.75, gain: 0) >> hp(35)
+track acid  = synth("acid", cutoff: 0.2, resonance: 0.72, duck: 0.5, delay: 0.18, gain: -9) >> hp(90) >> drive(0.15)
+track arp   = synth("pluck", reverb: 0.3, delay: 0.3, duck: 0.4, pan: 0.2, gain: -5, octave: 4) >> hp(400)
+track pad   = synth("dark_pad", reverb: 0.5, duck: 0.6, width: 1.5, gain: -3) >> hp(250) >> chorus(0.3)
+track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.17, resonance: 0.28,
                      env_amount: 4.5, fdecay: 0.14, fsustain: 0.75, attack: 0.008, decay: 0.3, sustain: 0.8,
-                     release: 0.5, drive: 0.08, octave: 4, duck: 0.35, reverb: 0.6, delay: 0.3, gain: 11)
-  >> hp(240) >> reverb(mix: 0.3, decay: 5, size: 0.9, damp: 0.4, predelay: 0.03)
+                     release: 0.4, drive: 0.08, octave: 4, duck: 0.35, reverb: 0.4, delay: 0.25, gain: 5)
+  >> hp(260)
 track rise  = synth("riser", reverb: 0.4, gain: 2)
-track boom  = synth("impact", reverb: 0.6, gain: 2)
+track boom  = synth("impact", reverb: 0.5, gain: 1)
 
 // ---- material -------------------------------------------------------------------
 let prog  = "<F#m9 Dmaj7 Amaj7 E6>"
-let roots = "<f#1 d1 a1 e1>"
+// bass roots between E1 and E2 (41-82 Hz), above the kick's fundamental where possible
+let roots = "<f#1 d2 a1 e2>"
 fn rolling() = roots.struct("[~ x x x]*4").vel("[0 1 0.7 0.8]*4")
-let acid_line = "<[0 0 7 0 ~ 0 3 ~ 0 ~ 5 0 3 ~ 7 0] [0 0 7 0 ~ 0 3 ~ 0 5 ~ 3 2 ~ 0 ~]>"
+// the acid line uses only each bar's chord tones (root, fifth, octave, third, seventh)
+let acid_line = "<[f#2 f#2 c#3 f#2 ~ f#2 a2 ~ f#2 ~ e3 f#2 a2 ~ c#3 f#2] [d2 d2 a2 d2 ~ d2 f#2 ~ d2 ~ c#3 d2 f#2 ~ a2 d2] [a2 a2 e3 a2 ~ a2 c#3 ~ a2 ~ g#2 a2 c#3 ~ e3 a2] [e2 e2 b2 e2 ~ e2 g#2 ~ e2 ~ c#3 e2 g#2 ~ b2 e2]>"
   .slide("~ ~ x ~ ~ ~ x ~ ~ ~ x ~ ~ ~ x ~").accent("x ~ ~ ~ x ~ ~ ~ x ~ ~ ~ x ~ ~ ~")
-fn arps(rate) = prog.arp("updown", rate, 2).vel("1 0.55 0.7 0.55")
-let melody = "<[4 _ _ _ 2 _ _ _ 4 _ 5 _ 4 _ _ _] [2 _ _ _ 1 _ _ _ 0 _ _ _ _ _ ~ ~]>"
+fn arps(rate) = prog.arp("up", rate, 1).vel("1 0.55 0.7 0.55")
+// a slow melody on chord tones: c#5 over F#m9, a4 over Dmaj7, c#5-e5 over Amaj7, b4 over E6
+let melody = "<[c#5 _ _ _ _ _ a4 _ _ _ b4 _ c#5 _ _ _] [a4 _ _ _ _ _ f#4 _ _ _ _ _ ~ ~ ~ ~] [c#5 _ _ _ e5 _ _ _ c#5 _ _ _ ~ ~ ~ ~] [b4 _ _ _ _ _ g#4 _ _ _ _ _ ~ ~ ~ ~]>"
 let beat  = "bd*4"
-let tops  = "[~ hh]*4, hh*16?0.5, [~ ~ ~ oh]*2?0.2"
+let tops  = "[~ hh]*4, hh*16?0.4, [~ ~ ~ oh]*2?0.2"
 
 // ---- arrangement -----------------------------------------------------------------
 section intro 16 {
@@ -50,16 +57,17 @@ section roll 16 {
   play perc "~ cp ~ cp, ~ ~ ~ ~ ~ ~ rim ~"
   play bass rolling()
   play pad prog.voicing("smooth")
-  play acid acid_line.octave(2) from 8
-  automate acid.cutoff 0.12 -> 0.22 from 8
+  play acid acid_line from 8
+  automate acid.cutoff 0.14 -> 0.22 from 8
 }
 
 section pulse 32 extends roll {
-  play acid acid_line.octave(2)
+  play acid acid_line
   play arp arps(1/16)
-  automate acid.cutoff lfo(period: 8, min: 0.18, max: 0.38)
-  automate acid.resonance 0.7 -> 0.85
-  automate arp.cutoff 0.25 -> 0.5
+  play hats tops
+  play hats "~ ~ rd ~".fast(2) from 16
+  automate acid.cutoff lfo(period: 8, min: 0.2, max: 0.4)
+  automate arp.cutoff 0.25 -> 0.45
 }
 
 section space 16 {
@@ -68,17 +76,17 @@ section space 16 {
   play lead melody.legato(0.95).vel(0.6) from 8
   play hats "hh*8?0.4" from 8
   play rise "0/4" from 12
-  automate pad.cutoff 0.25 -> 0.6
-  automate lead.gain -4
+  automate pad.cutoff 0.25 -> 0.55
+  automate lead.gain -3
 }
 
 section climax 32 extends pulse {
   play lead melody.legato(0.95)
-  play hats "cr" at 0
+  play crash "cr" at 0
   play boom "0" at 0
-  play perc "~ cp ~ cp, ~ ~ ~ ~ ~ ~ rim ~, ~ ~ ~ ~ ~ ~ ~ [~ cp]".lastof(4, fn(p) => p.fast(2))
+  play perc "~ cp ~ cp, ~ ~ ~ ~ ~ ~ rim ~".lastof(4, fn(p) => "~ cp ~ [cp cp], ~ ~ ~ ~ ~ ~ rim ~")
   automate lead.gain 0
-  automate acid.cutoff lfo(period: 4, min: 0.25, max: 0.5)
+  automate acid.cutoff lfo(period: 4, min: 0.28, max: 0.5)
 }
 
 section outro 16 {

@@ -394,8 +394,11 @@ class Interp:
         start, end = self._range_opts(opts, env)
         # In a section that extends another, the first play of a track replaces
         # what it inherited for that track; further plays in the same section add.
+        replaced = [p for p in sec.plays if p.inherited and p.track == str(name)]
         sec.plays = [p for p in sec.plays if not (p.inherited and p.track == str(name))]
         sec.plays.append(Play(str(name), pat, start, end, loc_of(expr)))
+        if replaced:
+            sec.replaced = getattr(sec, "replaced", []) + [(str(name), replaced, sec.plays[-1])]
 
     def s_mute_stmt(self, node, env):
         sec = self.need_section("mute", loc_of(node))

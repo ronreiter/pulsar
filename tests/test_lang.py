@@ -209,3 +209,12 @@ def test_section_name_cannot_hide_a_variable():
     with pytest.raises(PulsarError) as e:
         score('let groove = "bd*4"\nsection groove 4 { play kit groove }')
     assert "would hide" in e.value.msg
+
+
+def test_warns_when_a_sparse_play_replaces_an_inherited_groove():
+    from pulsar.analyze import score_warnings
+    sc, _ = score('''
+section a 4 { play kit "bd*4, hh*8" }
+section b 4 extends a { play kit "cr" at 0 }
+''')
+    assert any("replaces what it inherited" in w for w in score_warnings(sc))

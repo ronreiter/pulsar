@@ -25,7 +25,7 @@ agent that was given nothing but `pulsar docs` and the CLI.
 a clean sawtooth lead whose patch was fitted to a reference recording with `pulsar timbre`, and
 [`examples/skyline.pulse`](examples/skyline.pulse) is an epic progressive-house track with layered
 chords and the same lead bathed in reverb. [`examples/low_orbit.pulse`](examples/low_orbit.pulse)
-is melodic techno: a rolling bass, an acid line that slowly opens, and the lead held back for the climax.
+is melodic techno: a rolling bass between the kicks, an acid line on the chord tones that slowly opens, and the lead held back for the climax.
 
 ```
 tempo 122

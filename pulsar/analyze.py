@@ -105,6 +105,27 @@ def score_warnings(score) -> list[str]:
     for name, start, bars in score.sections:
         if not song.sections[name].plays:
             out.append(f"section {name!r} is silent")
+    from .pattern import Ctx
+    seen = set()
+    for name, start, bars in score.sections:
+        sec = song.sections[name]
+        if name in seen:
+            continue
+        seen.add(name)
+        for track, old_plays, new_play in getattr(sec, "replaced", []):
+            kind = "drums" if song.tracks[track].inst.kind == "drums" else "melodic"
+            def count(pl):
+                end = sec.bars if pl.end is None else min(pl.end, sec.bars)
+                try:
+                    return len(pl.pattern.onsets(pl.start, end, Ctx(kind=kind if kind == "drums" else "sample")))
+                except Exception:
+                    return 0
+            before = sum(count(p) for p in old_plays)
+            after = count(new_play)
+            if before >= 8 and after * 4 < before:
+                out.append(f"in section {name!r}, `play {track} ...` replaces what it inherited for {track} "
+                           f"({before} notes -> {after}); if you meant to add to it, put the new part on its own "
+                           f"track or restate the inherited play")
     return out
 
 
