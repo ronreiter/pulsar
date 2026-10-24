@@ -12,9 +12,11 @@ bus reverb = reverb(decay: 3.5, size: 0.8, damp: 0.5, predelay: 0.02)
 bus delay  = delay(3/16, feedback: 0.35, tone: 0.45)
 
 // ---- the lead -----------------------------------------------------------------------
+// envelope fitted to the reference lead's measured note shape: a quick fade to half level within
+// ~0.4 s while the filter closes, then a short release (the tail comes from the delay and hall)
 track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.14, resonance: 0.28,
-                     env_amount: 4.8, fdecay: 0.13, fsustain: 0.75, attack: 0.004, decay: 0.26, sustain: 0.73,
-                     release: 0.5, drive: 0.06, octave: 4, duck: 0.25, gain: 6)
+                     env_amount: 4.8, fdecay: 0.25, fsustain: 0.75, attack: 0.004, decay: 0.4, sustain: 0.5,
+                     release: 0.15, drive: 0.06, octave: 4, duck: 0.25, gain: 8)
   >> hp(240)
   >> delay(3/16, feedback: 0.3, mix: 0.15, tone: 0.5, pingpong: 1, spread: 0.3)
   >> reverb(mix: 0.42, decay: 6.3, size: 0.96, damp: 0.32, predelay: 0.03, lowcut: 300, width: 1)
