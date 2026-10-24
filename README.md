@@ -2,6 +2,7 @@
   <img src="docs/assets/studio.png" alt="Pulsar Studio: code on the left, an Ableton-style arrangement on the right" width="100%">
 </p>
 
+<p align="center"><img src="docs/assets/icon.png" alt="" width="96"></p>
 <h1 align="center">Pulsar</h1>
 <p align="center"><b>Electronic music as code, built for AI.</b><br>
 A small, readable music language · a studio-grade synthesis engine · a mix report that replaces ears.</p>
