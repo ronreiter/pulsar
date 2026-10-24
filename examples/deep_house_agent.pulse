@@ -22,15 +22,16 @@ track chord = synth("chord", duck: 0.5, reverb: 0.25, delay: 0.1, pan: -0.2, gai
 track keys  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.13, resonance: 0.29,
                      env_amount: 5.0, fdecay: 0.12, fsustain: 0.75, attack: 0.004, decay: 0.19, sustain: 0.73,
                      release: 0.35, drive: 0.1, octave: 3, duck: 0.3, reverb: 0.3, delay: 0.18, pan: 0.15, gain: 4.5)
-  >> hp(220)
-// classic deep house keys: an FM electric piano with slow tremolo and chorus, through a sweepable filter
-track rhodes = synth("epiano", tremolo: 0.22, trem_rate: 3.2, brightness: 0.85, octave: 3, duck: 0.4,
-                     reverb: 0.35, delay: 0.14, pan: 0.1, gain: 1)
-  >> hp(160) >> chorus(0.35) >> filter(0.4)
+  >> hp(220) >> reverb(mix: 0.25, decay: 4, size: 0.85, damp: 0.4, predelay: 0.03)
+// keys: plain sawtooth chords (the same clean saw patch as the lead) through a big reverb and a sweepable filter
+track saws  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.14, resonance: 0.25,
+                     env_amount: 4.6, fdecay: 0.12, fsustain: 0.7, attack: 0.004, decay: 0.25, sustain: 0.7,
+                     release: 0.4, drive: 0.05, octave: 3, duck: 0.4, reverb: 0.45, delay: 0.12, pan: 0.1, gain: 3)
+  >> hp(180) >> reverb(mix: 0.3, decay: 4.5, size: 0.9, damp: 0.4, predelay: 0.03) >> filter(0.4)
 track pad   = synth("pad", duck: 0.6, reverb: 0.4, gain: -4)
   >> hp(300)
 // vocal (neural text-to-speech): a wordless "oooh" line on the chord tones
-track harmony = voice("af_bella", lyrics: "oooh", vibrato: 0.25, inflection: 0.03, double: 0.3,
+track harmony = voice("af_bella", lyrics: "oooh", vibrato: 0.25, inflection: 0.03,
                       reverb: 0.55, delay: 0.12, duck: 0.25, gain: 0)
   >> hp(150) >> eq(mid: 1.5, mid_freq: 2800, mid_q: 0.8, high: 1)
 track rise  = synth("noise_sweep", reverb: 0.3, gain: 5)
@@ -42,12 +43,11 @@ let harmony_line = "<c4 a3 a3 g3 c4 d4 c4 b3>".legato(0.92)
 // --- keys: house comping (hits on 1, the "and" of 2, 3-and-a-half...) with ghost-note velocities
 let comp = prog.voicing("smooth").struct("x ~ ~ x ~ ~ x ~ ~ ~ x ~ ~ x ~ ~").legato(0.45)
   .vel("0.9 0.55 0.75 0.5 0.7 0.6")
-let push = prog.voicing("smooth").struct("[x ~ x x]*4").legato(0.3).vel("[0.8 0.45 0.6 0.5]*4")
 
 // --- drum patterns
 let hats  = "[~ hh]*4"
 let groove = "~ cp ~ cp, [~ hh]*4, sh*16?0.2, ~ ~ ~ [~ oh]"
-let fill  = "~ cp ~ [cp cp], [~ hh]*4, [~ ~ ~ ~ ~ ~ mt lt]"
+let fill  = "~ cp ~ [cp cp], [~ hh]*4, sh*16?0.2"
 
 // --- bassline: one bar per chord, roots a d f e
 // the sub follows the chord roots in the bassline's rhythm
@@ -61,16 +61,16 @@ section intro 8 {
   automate pad.cutoff 0.25 -> 0.45
   automate pad.gain -11 -> -4
   automate kick.hp.freq ramp(400, 20, "exp")
-  play rhodes prog.voicing("smooth").legato(0.95).vel(0.7) from 4
-  automate rhodes.filter.cutoff 0.2 -> 0.42 from 4
+  play saws prog.voicing("smooth").legato(0.95).vel(0.7) from 4
+  automate saws.filter.cutoff 0.2 -> 0.42 from 4
 }
 
 section groove_in 8 extends intro {
   mute perc
   play perc groove
   automate pad.gain -4
-  play rhodes comp
-  automate rhodes.filter.cutoff 0.42 -> 0.68
+  play saws comp
+  automate saws.filter.cutoff 0.42 -> 0.68
 }
 
 section build 8 extends groove_in {
@@ -78,9 +78,8 @@ section build 8 extends groove_in {
   play sub subline.mask("<0 0 0 0 1 1 1 1>")
   play rise "a4/4" from 4
   play chord prog.struct("~ x ~ ~ ~ x ~ ~").legato(0.5)
-  play rhodes comp to 6
-  play rhodes push from 6
-  automate rhodes.filter.cutoff 0.68 -> 0.85
+  play saws comp
+  automate saws.filter.cutoff 0.68 -> 0.85
   automate chord.filter.cutoff 0.4 -> 0.85
   automate chord.gain -4
   automate perc.gain -3 -> 0
@@ -93,8 +92,8 @@ section drop 16 extends groove_in {
   play sub subline
   play chord prog.struct("~ x ~ ~ ~ x ~ x").legato(0.5)
   play keys prog.arp("up", 1/8, 1).degrade(0.2)
-  automate rhodes.gain -4
-  automate rhodes.filter.cutoff 0.75
+  automate saws.gain -4
+  automate saws.filter.cutoff 0.75
   automate chord.gain 0
   play boom "a1" at 0
   automate chord.filter.cutoff lfo(period: 4, min: 0.55, max: 0.8)
@@ -126,7 +125,7 @@ section drop2 16 extends drop {
   play harmony harmony_line
   mute chord, perc
   play chord prog.struct("~ x ~ x ~ x ~ x").legato(0.5)
-  play perc "~ cp ~ cp, [~ hh]*4, hh*16?0.4, ~ ~ ~ [~ oh], ~ rd ~ rd".lastof(4, fn(p) => fill)
+  play perc "~ cp ~ cp, [~ hh]*4, hh*16?0.3, ~ ~ ~ [~ oh]".lastof(8, fn(p) => fill)
   automate pad.gain -2
 }
 

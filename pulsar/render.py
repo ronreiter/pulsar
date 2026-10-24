@@ -419,12 +419,14 @@ class Renderer:
                      notes[i].time - t0, max(notes[i].dur, 0.1)) for i in idxs]
             vel = float(np.mean([notes[i].vel for i in idxs]))
             y, lead = tts.sing_phrase(words, spec, opt["vibrato"], opt["vib_rate"], formant=opt["formant"])
+            lead += _audible_onset(y, tts.TTS_SR)
             doubled = opt["double"] > 0
             out.append((t0 - lead, vel, y, -0.3 if doubled else 0.0))
             if doubled:
-                spec2 = [(m + 0.06, s + 0.012, d) for m, s, d in spec]
+                spec2 = [(m + 0.06, s, d) for m, s, d in spec]
                 y2, lead2 = tts.sing_phrase(words, spec2, opt["vibrato"] * 1.15, opt["vib_rate"] * 0.94,
                                             formant=opt["formant"])
+                lead2 += _audible_onset(y2, tts.TTS_SR)
                 out.append((t0 - lead2, vel * opt["double"], y2, 0.3))
         return out
 
@@ -668,6 +670,18 @@ class Renderer:
         a = np.abs(mix[:, song_end:]).max(axis=0) if mix.shape[1] > song_end else np.zeros(0)
         loud = np.nonzero(a > 10 ** (-70 / 20) * max(float(np.abs(mix).max()), 1e-9))[0]
         return song_end + (int(loud[-1]) + 1 if len(loud) else 0)
+
+
+def _audible_onset(y: np.ndarray, sr: int, frac: float = 0.25, cap: float = 0.15) -> float:
+    """Seconds from the start of a rendered phrase until it becomes clearly audible (its
+    envelope first reaches `frac` of the peak). Sung phrases are placed that much earlier so
+    a soft vowel swell lands on the beat instead of after it."""
+    if len(y) == 0:
+        return 0.0
+    win = max(1, int(0.005 * sr))
+    env = np.sqrt(np.convolve(y.astype(np.float64) ** 2, np.ones(win) / win, "same"))
+    idx = np.nonzero(env >= frac * env.max())[0]
+    return min(float(idx[0]) / sr, cap) if len(idx) else 0.0
 
 
 def _db(x: float) -> float:
