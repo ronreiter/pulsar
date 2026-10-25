@@ -1,8 +1,8 @@
-// Lanterns: deep house built around one lead sound. F minor, 120 BPM, ~4:48.
-// Same ideas as Glasshouse (one clean pluck lead through a dotted-eighth delay and a long hall,
-// simple syncopated chord-tone melodies, minimal backing), with its own key, chords and themes.
+// Lanterns: deep house built around one lead sound. D minor, 120 BPM, ~4:48.
+// Glasshouse, extended: the same clean pluck lead through a dotted-eighth delay and a long hall,
+// a low, mostly repeated-note theme on the 3+3+4 grid, and the same minimal backing.
 tempo 120
-key "F minor"
+key "D minor"
 swing 0.05
 seed 9
 loudness -10
@@ -10,7 +10,7 @@ loudness -10
 bus reverb = reverb(decay: 3.5, size: 0.8, damp: 0.5, predelay: 0.02)
 bus delay  = delay(3/16, feedback: 0.35, tone: 0.45)
 
-// ---- the lead (the same pluck design as Glasshouse) ------------------------------------
+// ---- the lead (Glasshouse's lead B) -----------------------------------------------------
 track lead  = analog(wave1: "saw", wave2: "saw", filter: "ladder", unison: 3, detune: 0.12, spread: 0.6,
                      osc2_semi: 12, osc_mix: 0.25, cutoff: 0.42, resonance: 0.25, env_amount: 2.8, fdecay: 0.28,
                      fsustain: 0.15, attack: 0.002, decay: 0.45, sustain: 0.3, release: 0.3, drive: 0.1,
@@ -19,112 +19,80 @@ track lead  = analog(wave1: "saw", wave2: "saw", filter: "ladder", unison: 3, de
   >> delay(3/16, feedback: 0.3, mix: 0.15, tone: 0.5, pingpong: 1, spread: 0.3)
   >> reverb(mix: 0.4, decay: 6, size: 0.95, damp: 0.32, predelay: 0.03, lowcut: 300, width: 1)
 
-// ---- backing ---------------------------------------------------------------------------
+// ---- backing (Glasshouse's) ---------------------------------------------------------------
 track kick  = drums("house", bd_tune: 52, bd_decay: 0.32, bd_click: 0.25, bd_gain: -8)
-track hats  = drums("house", hh_decay: 0.05, oh_decay: 0.3, oh_gain: -4, sh_gain: -6, cp_gain: -4, rd_gain: -7,
+track hats  = drums("house", hh_decay: 0.05, hh_gain: 0, oh_decay: 0.3, oh_gain: -4, sh_gain: -6, cp_gain: -4,
                     reverb: 0.15)
-track crash = drums("house", cr_gain: -6, reverb: 0.3)
 track bass  = synth("moog_bass", cutoff: 0.34, resonance: 0.35, env_amount: 3.0, fdecay: 0.14, fsustain: 0.2,
                     decay: 0.3, sustain: 0.6, release: 0.07, drive: 0.35, width: 0, duck: 0.65, gain: 3)
   >> hp(80) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
 track sub   = synth("sub", width: 0, duck: 0.7, gain: -3)
-track pad   = synth("pad", reverb: 0.4, duck: 0.6, width: 1.4, gain: -11, octave: 3) >> hp(320)
+track pad   = synth("pad", reverb: 0.4, duck: 0.6, width: 1.4, gain: -8, octave: 3) >> hp(250)
 track sweep = synth("noise_sweep", reverb: 0.4, gain: 0)
-track rise  = synth("riser", reverb: 0.4, gain: -2)
 
-// ---- material ---------------------------------------------------------------------------
-let prog  = "<Fm9 Bbm9 Dbmaj7 Csus4>"
-let roots = "<f1 bb1 db2 c2>"
+// ---- material -----------------------------------------------------------------------------
+let prog  = "<Dm9 Bbmaj7 C6 Am7>"
+let roots = "<d2 bb1 c2 a1>"
 fn bassline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.6).vel("1 0.7 0.85 0.7 0.9 0.6")
 fn subline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.85)
-// theme A (low): repeated C, a lift into Db and Ab, a fall over Csus4 -- 16th steps 1, 4, 7, 11
-let theme_a = "<[c4 _ _ c4 _ _ c4 _ _ _ c4 _ _ _ ~ ~] [c4 _ _ c4 _ _ db4 _ _ _ c4 _ _ _ ab3 _] [f4 _ _ ab4 _ _ f4 _ _ _ c4 _ _ _ db4 _] [g4 _ _ f4 _ _ c4 _ _ _ ~ ~ ~ ~ ~ ~]>"
-// theme B (higher): same grid, reaching up to C5 over Dbmaj7
-let theme_b = "<[ab4 _ _ ab4 _ _ g4 _ _ _ f4 _ _ _ ~ ~] [f4 _ _ f4 _ _ ab4 _ _ _ bb4 _ _ _ ab4 _] [ab4 _ _ f4 _ _ c5 _ _ _ ab4 _ _ _ f4 _] [g4 _ _ f4 _ _ c4 _ _ _ ~ ~ ~ ~ ~ ~]>"
-let tops      = "~ cp ~ cp, [~ hh]*4, sh*16?0.4"
-let tops_lift = "~ cp ~ cp, [~ hh]*4, ~ ~ ~ [~ oh], sh*16?0.4"
-let tops_full = "~ cp ~ cp, [~ hh]*4, ~ ~ ~ [~ oh], sh*16?0.4, ~ ~ rd ~"
+// the theme: repeated chord tones on 16th steps 1, 4, 7, 11, each held to the next hit; pickups
+// lead into bars 3 and 4. Everything stays between A3 and G4.
+let theme = "<[a3 _ _ a3 _ _ a3 _ _ _ a3 _ _ _ ~ ~] [a3 _ _ a3 _ _ bb3 _ _ _ a3 _ _ _ d4 _] [e4 _ _ e4 _ _ c4 _ _ _ e4 _ _ _ g4 _] [e4 _ _ c4 _ _ a3 _ _ _ ~ ~ ~ ~ ~ ~]>"
+// the same rhythm a step or two higher, for the second half
+let theme_up = "<[d4 _ _ d4 _ _ c4 _ _ _ a3 _ _ _ ~ ~] [d4 _ _ d4 _ _ f4 _ _ _ d4 _ _ _ a3 _] [e4 _ _ e4 _ _ g4 _ _ _ e4 _ _ _ c4 _] [e4 _ _ c4 _ _ a3 _ _ _ ~ ~ ~ ~ ~ ~]>"
+let tops = "~ cp ~ cp, [~ hh]*4, sh*16?0.4"
+let beat = "~ cp ~ cp, [~ hh]*4, ~ ~ ~ [~ oh], sh*16?0.4"
 
-// ---- arrangement -------------------------------------------------------------------------
+// ---- arrangement ---------------------------------------------------------------------------
 section intro 16 {
   play pad prog.voicing("smooth")
-  play lead theme_a.legato(0.95).vel(0.65) from 8
-  automate pad.cutoff 0.2 -> 0.38
-  automate lead.gain -6 -> 0 from 8
+  play lead theme.legato(0.95).vel(0.7) from 8
+  automate pad.cutoff 0.2 -> 0.35
 }
 
 section groove 16 {
   play kick "bd*4"
-  play hats "~ cp ~ cp, [~ hh]*4"
-  play crash "cr" at 0
+  play hats tops
   play bass bassline()
   play sub subline()
   play pad prog.voicing("smooth")
-  play lead theme_a.legato(0.95)
-  automate lead.gain -2
+  play lead theme.legato(0.95)
 }
 
-section lift 16 extends groove {
-  play hats tops_lift
-  automate lead.gain -1
+section full 16 extends groove {
+  play hats beat
 }
 
 section breakdown 16 {
   play pad prog.voicing("smooth").legato(1)
-  play lead theme_b.legato(0.95).vel(0.75)
-  play hats "sh*8?0.3" from 8
-  play sweep "0/4" at 0 to 4
-  automate pad.cutoff 0.25 -> 0.55
-  automate pad.gain 2
+  play lead theme_up.legato(0.95).vel(0.8)
+  play sweep "0/4" from 12
+  automate pad.cutoff 0.25 -> 0.5
 }
 
-section build 8 {
-  play pad prog.voicing("smooth")
-  play lead theme_b.legato(0.95)
-  play kick "bd*4" from 4
-  play hats "[~ hh]*4, sh*16?0.3"
-  play rise "0/8"
-  automate pad.gain 2 -> 0
-}
-
-section drop 32 {
+section comeback 32 {
   play kick "bd*4"
-  play hats tops_full
-  play crash "cr" at 0
-  play crash "cr" at 16
+  play hats beat
   play bass bassline()
   play sub subline()
   play pad prog.voicing("smooth")
-  play lead theme_b.legato(0.95)
-  automate lead.gain 0
-  automate pad.gain 0
+  play lead theme_up.legato(0.95)
 }
 
-section interlude 8 {
+section pause 8 {
   play pad prog.voicing("smooth").legato(1)
-  play bass bassline()
-  play sub subline()
-  play hats "[~ hh]*4"
-  play lead theme_a.legato(0.95).vel(0.6) from 4
+  play lead theme.legato(0.95).vel(0.7)
 }
 
-section finale 16 extends drop {
-  play lead theme_b.legato(0.95)
-  play hats tops_full.lastof(4, fn(p) => "~ cp ~ [cp cp], [~ hh]*4, ~ ~ ~ [~ oh], sh*16?0.4")
-  play crash "cr" at 0
-  play crash "cr" at 8
-  automate lead.gain 1.5
-  automate pad.gain 2
+section last 32 extends comeback {
+  play lead theme.legato(0.95) to 16
+  play lead theme_up.legato(0.95) from 16
 }
 
-section outro 16 {
-  play kick "bd*4" to 12
-  play hats tops to 12
-  play bass bassline() to 8
-  play sub subline() to 8
+section outro 8 {
   play pad prog.voicing("smooth")
-  play lead theme_a.legato(0.95).vel(0.6) to 8
-  automate pad.gain 0 -> -14 from 8
+  play lead theme.legato(0.95).vel(0.6) to 4
+  automate pad.gain 0 -> -14
 }
 
-arrange intro, groove, lift, breakdown, build, drop, interlude, finale, outro
+arrange intro, groove, full, breakdown, comeback, pause, last, outro
