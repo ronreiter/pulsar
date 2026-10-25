@@ -27,7 +27,8 @@ a clean sawtooth lead whose patch was fitted to a reference recording with `puls
 chords and the same lead bathed in reverb. [`examples/low_orbit.pulse`](examples/low_orbit.pulse)
 is melodic techno: a rolling bass between the kicks, an acid line on the chord tones that slowly opens, and the lead held back for the climax. [`examples/glasshouse.pulse`](examples/glasshouse.pulse) is built around one lead
 sound: a clean sawtooth through a dotted-eighth ping-pong delay and a long, wide hall. [`examples/lanterns.pulse`](examples/lanterns.pulse)
-takes the same ideas to a longer D-minor track.
+takes the same ideas to a longer D-minor track. [`examples/driftwood.pulse`](examples/driftwood.pulse) is melodic
+deep house built on a pedal point: the lead repeats one note while the chords move underneath.
 
 ```
 tempo 122

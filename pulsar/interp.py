@@ -333,7 +333,7 @@ class Interp:
         if self.section is not None:
             raise PulsarError("sections can't be nested", loc)
         if env.has(name) and not isinstance(env.get(name), Section):
-            raise PulsarError(f"section {name!r} would hide the {type_name(env.get(name))} named {name!r}", loc,
+            raise PulsarError(f"section {name!r} would hide {type_name(env.get(name))} with the same name", loc,
                               f"rename one of them, e.g. section {name}_part or let {name}_pattern")
         base = None
         if parent is not None:

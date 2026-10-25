@@ -1,0 +1,157 @@
+// Driftwood: melodic deep / progressive house. F minor, 122 BPM, ~5:30.
+// Warm, melancholic and slow-burning. The lead never changes note: it repeats A-flat while the chords
+// move underneath (a pedal point -- A-flat is in all four chords, so its colour shifts with each one),
+// and the effects do the moving: pluck envelope, dotted-eighth delay and a big hall, opened up and
+// soaked in the breakdown. Around it: a 16th-note arpeggio whose filter opens over the whole track,
+// a soft round kick with deep sidechain pumping, a piano breakdown and an airy vocal.
+tempo 122
+key "F minor"
+swing 0.04
+seed 14
+loudness -10
+
+bus reverb = reverb(decay: 4, size: 0.85, damp: 0.45, predelay: 0.025)
+bus delay  = delay(3/16, feedback: 0.4, tone: 0.45)
+
+// ---- drums: soft and round --------------------------------------------------------------
+track kick  = drums("house", bd_tune: 50, bd_decay: 0.38, bd_click: 0.12, bd_tone: 0.3, bd_gain: -7)
+track perc  = drums("house", hh_decay: 0.045, hh_gain: -3, oh_decay: 0.3, oh_gain: -6, sh_gain: -4, cp_gain: -5,
+                    rd_gain: -9, reverb: 0.25)
+track crash = drums("house", cr_gain: -8, reverb: 0.4)
+
+// ---- bass: warm offbeat pump over a long sub, both deeply ducked --------------------------
+track bass  = synth("moog_bass", cutoff: 0.3, resonance: 0.3, env_amount: 2.4, fdecay: 0.18, fsustain: 0.25,
+                    decay: 0.35, sustain: 0.6, release: 0.08, drive: 0.25, width: 0, duck: 0.75, gain: 2)
+  >> hp(70) >> comp(threshold: -20, ratio: 3, attack: 0.01, release: 0.1, makeup: 2)
+track sub   = synth("sub", width: 0, duck: 0.8, gain: -2)
+
+// ---- harmony ----------------------------------------------------------------------------------
+track pad   = synth("pad", attack: 1.2, release: 2.5, reverb: 0.5, duck: 0.7, width: 1.6, gain: -9, octave: 3)
+  >> hp(320) >> chorus(0.3)
+track piano = synth("epiano", tremolo: 0.12, trem_rate: 3, brightness: 0.75, octave: 3, reverb: 0.55, delay: 0.15,
+                    duck: 0.35, gain: 0) >> hp(260)
+track arp   = synth("pluck", cutoff: 0.32, decay: 0.22, reverb: 0.35, delay: 0.35, duck: 0.55, pan: 0.15, gain: -2,
+                    octave: 4) >> hp(450) >> filter(0.25)
+
+// ---- the lead: a clean pluck through a dotted-eighth delay and a big hall --------------------
+track lead  = analog(wave1: "saw", wave2: "saw", filter: "ladder", unison: 3, detune: 0.12, spread: 0.6,
+                     osc2_semi: 12, osc_mix: 0.25, cutoff: 0.43, resonance: 0.25, env_amount: 2.8, fdecay: 0.28,
+                     fsustain: 0.15, attack: 0.002, decay: 0.45, sustain: 0.3, release: 0.35, drive: 0.1,
+                     octave: 4, duck: 0.35, gain: 9)
+  >> hp(260)
+  >> delay(3/16, feedback: 0.33, mix: 0.18, tone: 0.5, pingpong: 1, spread: 0.3)
+  >> reverb(mix: 0.42, decay: 6.5, size: 0.96, damp: 0.32, predelay: 0.03, lowcut: 300, width: 1)
+
+// ---- air: a wordless vocal, a riser, an impact --------------------------------------------------
+track vox   = voice("af_bella", lyrics: "oooh", vibrato: 0.25, inflection: 0.03, reverb: 0.6, delay: 0.2,
+                    duck: 0.3, gain: -2) >> hp(180) >> eq(mid: 1.5, mid_freq: 2800)
+track rise  = synth("noise_sweep", reverb: 0.5, gain: -2)
+track boom  = synth("impact", reverb: 0.6, gain: 0)
+
+// ---- material ----------------------------------------------------------------------------------
+let prog  = "<Fmadd9 Dbmaj9 Abadd9 Ebsus4>"   // A-flat is a chord tone of every chord
+let roots = "<f1 db2 ab1 eb2>"
+let pump  = roots.struct("[~ x]*4").legato(0.55).vel("[0.9 0.75]*4")
+let subl  = roots.legato(0.98)
+fn arps(oct) = prog.voicing("smooth").arp("up", 1/16, oct).vel("1 0.55 0.75 0.55")
+// the pedal: A-flat on the 3+3+4 grid, the rhythm shifting a little from bar to bar
+let theme = "<[ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ~ ~] [ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ab4 _] [ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ~ ~] [ab4 _ _ _ _ _ ab4 _ _ _ _ _ ~ ~ ~ ~]>".legato(0.95)
+let theme_end = "<[ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ab4 _] [ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ab4 _] [ab4 _ _ ab4 _ _ ab4 _ _ _ ab4 _ _ _ ab4 _] [ab4 _ _ ab4 _ _ ab4 _ _ _ _ _ ~ ~ ~ ~]>".legato(0.95)
+let vox_line = "<f4 f4 eb4 eb4>".legato(0.95)
+let tops   = "[~ hh]*4, sh*16?0.35"
+let beat   = "~ cp ~ cp, [~ hh]*4, sh*16?0.35, ~ ~ ~ [~ oh]"
+let drive  = "~ cp ~ cp, [~ hh]*4, sh*16?0.35, ~ ~ ~ [~ oh], ~ ~ rd ~"
+
+// ---- arrangement -----------------------------------------------------------------------------------
+section intro 16 {
+  play kick "bd*4"
+  play perc tops from 8
+  play arp arps(2) from 4
+  automate arp.filter.cutoff 0.18 -> 0.3 from 4
+}
+
+section groove 16 {
+  play kick "bd*4"
+  play perc beat
+  play bass pump
+  play sub subl
+  play arp arps(2)
+  automate arp.filter.cutoff 0.3 -> 0.42
+}
+
+section swell 16 extends groove {
+  play pad prog.voicing("smooth")
+  automate pad.cutoff 0.2 -> 0.4
+  automate arp.filter.cutoff 0.42 -> 0.55
+}
+
+section breakdown 32 {
+  play pad prog.voicing("smooth").legato(1)
+  play piano prog.voicing("smooth").struct("x _ _ _ _ _ x _ _ _ _ _ x _ _ _").legato(0.95) to 24
+  play arp arps(1) from 8
+  play lead theme.vel(0.75) from 16
+  play vox vox_line from 8
+  play perc "sh*8?0.3" from 16
+  play rise "0/8" from 24
+  automate pad.cutoff 0.25 -> 0.6
+  automate arp.filter.cutoff 0.3 -> 0.5 from 8
+  automate arp.gain -4
+  automate lead.cutoff 0.4 -> 0.55 from 16
+  automate lead.delay.feedback 0.33 -> 0.52 from 16
+  automate lead.reverb.mix 0.42 -> 0.6 from 16
+}
+
+section build 8 {
+  play pad prog.voicing("smooth")
+  play arp arps(2)
+  play lead theme
+  play kick "bd*4" from 4
+  play perc "[~ hh]*4, sh*16?0.2" from 2
+  play perc "cp*4" from 6 to 7
+  play perc "cp*8" from 7
+  automate arp.filter.cutoff 0.5 -> 0.75
+  automate arp.gain -4 -> 0
+  automate lead.delay.feedback 0.52 -> 0.33
+  automate lead.reverb.mix 0.6 -> 0.42
+}
+
+section drop 32 {
+  play kick "bd*4"
+  play perc drive
+  play crash "cr" at 0
+  play crash "cr" at 16
+  play boom "0" at 0
+  play bass pump
+  play sub subl
+  play pad prog.voicing("smooth")
+  play arp arps(2)
+  play lead theme
+  play vox vox_line from 16
+  automate arp.filter.cutoff 0.75
+}
+
+section break 8 {
+  play pad prog.voicing("smooth").legato(1)
+  play piano prog.voicing("smooth").struct("x _ _ _ _ _ x _ _ _ _ _ x _ _ _").legato(0.95)
+  play arp arps(1)
+  play vox vox_line
+}
+
+section drop2 16 extends drop {
+  play lead theme_end
+  play crash "cr" at 0
+  play boom "0" at 0
+}
+
+section outro 24 {
+  play kick "bd*4" to 16
+  play perc beat to 16
+  play bass pump to 8
+  play sub subl to 8
+  play pad prog.voicing("smooth") to 16
+  play arp arps(2)
+  automate arp.filter.cutoff 0.75 -> 0.2
+  automate master.gain 0 -> -14 from 16
+}
+
+arrange intro, groove, swell, breakdown, build, drop, break, drop2, outro
