@@ -1,9 +1,9 @@
-// Glasshouse: deep house built around one lead sound. A minor, 120 BPM.
+// Glasshouse: deep house built around one lead sound. G minor, 120 BPM.
 // The lead is a single clean sawtooth (instant attack, a slow filter blip, warm sustain) sent
 // through a dotted-eighth ping-pong delay and a long, wide hall. The effect settings were
 // measured from a reference recording (tail ~6 s, dotted-eighth echoes, wide stereo).
 tempo 120
-key "A minor"
+key "G minor"
 swing 0.05
 seed 5
 loudness -10
@@ -34,12 +34,13 @@ track pad   = synth("pad", reverb: 0.4, duck: 0.6, width: 1.4, gain: -8, octave:
 track sweep = synth("noise_sweep", reverb: 0.4, gain: 0)
 
 // ---- material ------------------------------------------------------------------------
-let prog  = "<Am9 Fmaj7 C6 Gsus2>"
-let roots = "<a1 f1 c2 g1>"
+let prog  = "<Gm9 Ebmaj7 Bb6 Fsus2>"
+let roots = "<g1 eb2 bb1 f1>"
 fn bassline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.6).vel("1 0.7 0.85 0.7 0.9 0.6")
 fn subline() = roots.struct("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").legato(0.85)
-// a very simple melody in eighth notes: c c c c / c c c d d e e e e / e e e d d c c c c
-let melody = "<[c5 c5 c5 c5 ~ ~ ~ ~] [c5 c5 c5 d5 d5 e5 e5 e5] [e5 ~ ~ ~ e5 e5 e5 d5] [d5 c5 c5 c5 c5 _ _ _]>"
+// a simple syncopated melody: repeated notes on the 3+3+4 house grid (16th steps 1, 4, 7, 11), each held
+// until the next hit; it climbs over the first three chords and falls back over Fsus2. All chord tones.
+let melody = "<[d4 _ _ d4 _ _ d4 _ _ _ d4 _ _ _ ~ ~] [d4 _ _ d4 _ _ eb4 _ _ _ d4 _ _ _ bb3 _] [f4 _ _ f4 _ _ d4 _ _ _ f4 _ _ _ g4 _] [f4 _ _ c4 _ _ c4 _ _ _ bb3 _ _ _ ~ ~]>"
 let beat  = "~ cp ~ cp, [~ hh]*4, ~ ~ ~ [~ oh], sh*16?0.4"
 
 // ---- arrangement -----------------------------------------------------------------------
