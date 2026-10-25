@@ -12,16 +12,15 @@ bus reverb = reverb(decay: 3.5, size: 0.8, damp: 0.5, predelay: 0.02)
 bus delay  = delay(3/16, feedback: 0.35, tone: 0.45)
 
 // ---- the lead -----------------------------------------------------------------------
-// a trance-style pluck lead: the filter envelope makes the pluck (low cutoff, big envelope, short
-// filter decay, zero filter sustain) while the amp envelope lets each note breathe at ~60%;
-// light drive and compression, then the dotted-eighth delay and the long hall
-track lead  = analog(wave1: "saw", wave2: "none", filter: "svf", unison: 1, cutoff: 0.12, resonance: 0.3,
-                     env_amount: 4.5, fdecay: 0.2, fsustain: 0.0, attack: 0.004, decay: 0.7, sustain: 0.6,
-                     release: 0.25, drive: 0.15, octave: 4, duck: 0.25, gain: 16)
-  >> hp(240) >> comp(threshold: -18, ratio: 3, attack: 0.005, release: 0.12)
+// the lead: a trance pluck with a resting cutoff high enough to stay clear, three slightly detuned
+// saws plus an octave-up saw, a short filter blip, then the dotted-eighth ping-pong delay and a long hall
+track lead  = analog(wave1: "saw", wave2: "saw", filter: "ladder", unison: 3, detune: 0.12, spread: 0.6,
+                     osc2_semi: 12, osc_mix: 0.25, cutoff: 0.42, resonance: 0.25, env_amount: 2.8, fdecay: 0.28,
+                     fsustain: 0.15, attack: 0.002, decay: 0.45, sustain: 0.3, release: 0.3, drive: 0.1,
+                     octave: 4, duck: 0.25, gain: 11)
+  >> hp(240)
   >> delay(3/16, feedback: 0.3, mix: 0.15, tone: 0.5, pingpong: 1, spread: 0.3)
-  >> reverb(mix: 0.42, decay: 6.3, size: 0.96, damp: 0.32, predelay: 0.03, lowcut: 300, width: 1)
-  >> width(1.35, bass_mono: 200)
+  >> reverb(mix: 0.4, decay: 6, size: 0.95, damp: 0.32, predelay: 0.03, lowcut: 300, width: 1)
 
 // ---- backing (kept low and simple so the lead's tail has room) ------------------------
 track kick  = drums("house", bd_tune: 52, bd_decay: 0.32, bd_click: 0.25, bd_gain: -8)
