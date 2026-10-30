@@ -12,7 +12,7 @@ bus hall = reverb(decay: 6, size: 0.95, damp: 0.5, predelay: 0.04)
 
 // ---- the room: birds and water ----------------------------------------------------------------
 track birds = ambience("dawn chorus", id: "File:Dawn chorus at Glencairnie big bungalow Craigmore DM.ogg",
-                       fade: 8, width: 1.3, gain: -1)
+                       fade: 8, width: 1.3, gain: -6)
   >> hp(300) >> comp(threshold: -30, ratio: 2.5, attack: 0.005, release: 0.2, makeup: 11) >> eq(high: -3)
 track water = ambience("water trickle", id: "File:363120 fractalstudios water-trickle.wav", fade: 8,
                        width: 1.2, gain: -7) >> hp(160) >> lp(9000)
@@ -58,7 +58,7 @@ section first 16 {
   play keys roots_home.legato(0.95).vel(0.55)
   play melody theme.vel("0.78 0.62") from 8
   play bell sparkle from 8
-  automate birds.gain -1 -> -4 from 8
+  automate birds.gain -6 -> -9 from 8
 }
 
 section away 16 {
@@ -71,7 +71,7 @@ section away 16 {
   play keys roots_away.legato(0.95).vel(0.55)
   play melody reply.vel("0.74 0.6")
   automate pad.cutoff 0.22 -> 0.3
-  automate birds.gain -4
+  automate birds.gain -9
 }
 
 section home 16 {
@@ -85,7 +85,7 @@ section home 16 {
   play melody theme.vel("0.82 0.64")
   play bell sparkle
   automate pad.cutoff 0.3 -> 0.2
-  automate birds.gain -4 -> -1 from 8
+  automate birds.gain -9 -> -6 from 8
 }
 
 section dusk 10 {

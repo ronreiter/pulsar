@@ -162,10 +162,12 @@ enum Highlighter {
             (re("\\b(" + keywords.joined(separator: "|") + ")\\b"), Theme.keyword),
             (re("(?<![A-Za-z_])-?\\d+(\\.\\d+)?"), Theme.number),
             (re(">>|->|=>|\\.\\."), Theme.op),
-            (re("\"(\\\\.|[^\"\\\\\\n])*\"|'(\\\\.|[^'\\\\\\n])*'|`[^`]*`"), Theme.string),
-            (re("(//|#)[^\\n]*"), Theme.comment),
         ]
     }()
+    /// Strings and comments in one left-to-right pass, so a `#` inside a string ("f#5") isn't a comment
+    /// and quotes inside a comment aren't a string.
+    private static let stringsAndComments = try! NSRegularExpression(
+        pattern: "(\"(\\\\.|[^\"\\\\\\n])*\"|'(\\\\.|[^'\\\\\\n])*'|`[^`]*`)|((//|#)[^\\n]*)")
 
     static func apply(to tv: NSTextView, errorLine: Int?) {
         guard let storage = tv.textStorage else { return }
@@ -177,6 +179,11 @@ enum Highlighter {
             regex.enumerateMatches(in: storage.string, range: full) { m, _, _ in
                 if let r = m?.range { storage.addAttribute(.foregroundColor, value: color, range: r) }
             }
+        }
+        stringsAndComments.enumerateMatches(in: storage.string, range: full) { m, _, _ in
+            guard let m = m else { return }
+            storage.addAttribute(.foregroundColor, value: m.range(at: 1).location != NSNotFound ? Theme.string : Theme.comment,
+                                 range: m.range)
         }
         if let line = errorLine, line > 0 {
             var idx = 0, current = 1
