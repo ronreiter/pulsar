@@ -933,6 +933,43 @@ def b_sampler(interp, path, **kw):
     return Instrument("sampler", p.name, "sampler", {}, {}, False, octave, mix, base_gain=-6.0, sample=opts)
 
 
+AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
+
+
+def b_ambience(interp, query, **kw):
+    """A free stock recording (birds, water, rain, ...) that plays continuously while the track
+    plays, looped with a seamless crossfade. Found and downloaded at render time; see pulsar sounds."""
+    from . import stock
+    opts = {"query": str(query), "license": "open", "pick": 0, "id": None, "fade": 3.0, "start": 0.0,
+            "min_length": 20.0}
+    if not opts["query"].strip():
+        raise PulsarError('ambience() needs something to search for, e.g. ambience("birds forest")')
+    mixer = {}
+    for k, v in kw.items():
+        if k in presets.MIXER_KEYS or k in interp.song.buses:
+            mixer[k] = v
+        elif k in ("license", "id"):
+            if not isinstance(v, str):
+                raise PulsarError(f"ambience {k} takes a string")
+            opts[k] = str(v)
+        elif k in AMBIENCE_KEYS:
+            opts[k] = float(num(v, None, k))
+        else:
+            raise PulsarError(f"ambience() has no parameter {k!r}",
+                              hint=suggest(k, list(AMBIENCE_KEYS) + list(presets.MIXER_KEYS)))
+    if opts["license"] not in stock.LICENSES:
+        raise PulsarError(f"ambience license must be one of {', '.join(repr(x) for x in stock.LICENSES)}",
+                          hint='"cc0": no attribution; "open": CC0 + CC BY; "by-sa": also share-alike')
+    opts["pick"] = int(opts["pick"])
+    if opts["fade"] < 0 or opts["start"] < 0:
+        raise PulsarError("ambience fade and start are seconds (0 or more)")
+    octave = int(mixer.pop("octave", 4))
+    mix = {"gain": 0.0}
+    mix.update(mixer)
+    return Instrument("ambience", opts["query"], "ambience", {}, {}, False, octave, mix, base_gain=-10.0,
+                      sample=opts)
+
+
 VOICE_KEYS = {"lyrics", "mode", "speed", "inflection", "vibrato", "vib_rate", "formant", "double", "lang", "transpose"}
 
 
@@ -1098,7 +1135,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience,
     "seq": b_seq, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,

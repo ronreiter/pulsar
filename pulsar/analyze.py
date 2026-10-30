@@ -49,7 +49,10 @@ def describe_score(score) -> str:
     for name, tr in song.tracks.items():
         notes = score.notes.get(name, [])
         desc = f"{tr.inst.preset} ({tr.inst.engine})"
-        if notes and tr.inst.kind in ("sampler", "voice"):
+        if tr.inst.kind == "ambience":
+            desc = f"ambience {tr.inst.sample['query']!r}"
+            rng = f" ({sum(n.dur for n in notes):.0f}s of stock recording)" if notes else ""
+        elif notes and tr.inst.kind in ("sampler", "voice"):
             pitched = [n.pitch for n in notes if n.pitch is not None]
             rng = (f" range {theory.midi_name(int(min(pitched)))}-{theory.midi_name(int(max(pitched)))}"
                    if pitched else " (as recorded)")
@@ -88,7 +91,7 @@ def score_warnings(score) -> list[str]:
                                f"above its speaking range; it will sound thin and synthetic. Lower it "
                                f"(octave: {max(1, int(med) // 12 - 2)}) or use .oct(-1)")
             continue
-        if tr.inst.kind in ("drums", "sampler"):
+        if tr.inst.kind in ("drums", "sampler", "ambience"):
             continue
         lo = min(n.pitch for n in notes)
         hi = max(n.pitch for n in notes)

@@ -48,6 +48,12 @@ def cmd_render(args):
     if args.mp3 and out.suffix.lower() != ".mp3":
         write_audio(out.with_suffix(".mp3"), res.mix, res.sr, title)
         print(f"wrote {out.with_suffix('.mp3')}", file=sys.stderr)
+    if res.info.get("credits"):
+        cred = out.with_name(out.stem + ".credits.txt")
+        lines = [f"{Path(args.file).stem} -- sounds used", ""]
+        lines += [f"{c['track']}: {c['credit']}" for c in res.info["credits"]]
+        cred.write_text("\n".join(lines) + "\n")
+        print(f"wrote {cred} (credit these recordings when you share the track)", file=sys.stderr)
     if args.stems:
         d = Path(args.stems)
         d.mkdir(parents=True, exist_ok=True)
@@ -92,7 +98,7 @@ def score_json(path: str, source: str | None = None) -> dict:
         inst = tr.inst
         if inst.kind == "drums":
             lane = "drums"
-        elif inst.kind == "sampler":
+        elif inst.kind in ("sampler", "ambience"):
             lane = "sampler"
         else:
             lane = "notes"
@@ -196,6 +202,29 @@ def cmd_voices(args):
     return 0
 
 
+def cmd_sounds(args):
+    from . import stock
+    from .errors import PulsarError
+
+    try:
+        results = stock.search(args.query, args.license)
+    except PulsarError as e:
+        print(f"error: {e.msg}", file=sys.stderr)
+        return 1
+    if not results:
+        print(f"no {args.license}-licensed recordings found for {args.query!r}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps([{k: v for k, v in vars(r).items()} for r in results[:args.limit]], indent=2))
+        return 0
+    for i, r in enumerate(results[:args.limit]):
+        print(f"pick: {i:<3} {r.duration:6.0f}s  {r.license:<12} {r.title}")
+        print(f"{'':9}id: {r.id!r}  by {r.creator or 'unknown'}  {r.page_url}")
+    print(f'\nuse: track birds = ambience("{args.query}", pick: 0)   '
+          f"(credits are written next to the render)", file=sys.stderr)
+    return 0
+
+
 def cmd_presets(args):
     from . import presets
 
@@ -288,6 +317,13 @@ def main(argv=None):
     tb.add_argument("-o", "--output", help="write the matched patch playing a test phrase")
     tb.set_defaults(fn=cmd_timbre)
     sub.add_parser("voices", help="list the text-to-speech voices for voice()").set_defaults(fn=cmd_voices)
+    sd = sub.add_parser("sounds", help="search free stock recordings (birds, water, rain...) for ambience()")
+    sd.add_argument("query")
+    sd.add_argument("--license", choices=["cc0", "open", "by-sa"], default="open",
+                    help="cc0: no attribution; open (default): CC0 + CC BY; by-sa: also share-alike")
+    sd.add_argument("--limit", type=int, default=10)
+    sd.add_argument("--json", action="store_true")
+    sd.set_defaults(fn=cmd_sounds)
     p = sub.add_parser("presets", help="list synth presets and drum kits")
     p.add_argument("name", nargs="?")
     p.set_defaults(fn=cmd_presets)

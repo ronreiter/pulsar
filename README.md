@@ -28,7 +28,9 @@ chords and the same lead bathed in reverb. [`examples/low_orbit.pulse`](examples
 is melodic techno: a rolling bass between the kicks, an acid line on the chord tones that slowly opens, and the lead held back for the climax. [`examples/glasshouse.pulse`](examples/glasshouse.pulse) is built around one lead
 sound: a clean sawtooth through a dotted-eighth ping-pong delay and a long, wide hall. [`examples/lanterns.pulse`](examples/lanterns.pulse)
 takes the same ideas to a longer D-minor track. [`examples/driftwood.pulse`](examples/driftwood.pulse) is melodic
-deep house built on a pedal point: the lead repeats one note while the chords move underneath.
+deep house built on a pedal point: the lead repeats one note while the chords move underneath. [`examples/still_water.pulse`](examples/still_water.pulse)
+is relaxing spa music: a soft piano and pads over a real dawn chorus and a trickling stream, pulled from
+free stock recordings with `ambience()`.
 
 ```
 tempo 122
@@ -78,6 +80,8 @@ by note at 96 kHz and placed sample-exactly:
 - 14 synthesized drum voices in 5 kits, a sampler (pitch / slice / gate / fit);
 - neural singing and speaking voices (Kokoro-82M, 54 voices, local): lyrics sung one word
   per note, re-pitched with the WORLD vocoder so formants stay natural, optionally doubled;
+- free stock ambience -- birds, water, rain, waves -- searched in openly licensed archives
+  (Wikimedia Commons, Freesound), license-filtered, looped seamlessly and credited per render;
 - Zita reverb, ping-pong delay, chorus, saturation, EQ, compression, sidechain ducking;
 - glue compression, a 4× oversampled soft clipper and a true-peak limiter to a LUFS target.
 

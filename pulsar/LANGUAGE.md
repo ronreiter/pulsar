@@ -249,6 +249,40 @@ so legato melodies sound the most natural.
 
 Use your own lyrics; songs only ever contain what you write.
 
+## Ambience (free stock recordings)
+
+`ambience("birds dawn chorus")` is a background recording -- birds, water, rain, wind, waves,
+a forest at night -- found in openly licensed archives: Wikimedia Commons by default, plus
+Freesound when `FREESOUND_API_KEY` is set. It plays continuously while the track plays: every
+run of back-to-back `play`s is one unbroken stretch of the recording, looped with a seamless
+crossfade and faded in and out at its edges. The pattern only says *when* (`"x"` per bar is
+the usual), not what.
+
+```
+track birds = ambience("dawn chorus", fade: 8, gain: -1) >> hp(300)
+track water = ambience("water trickle", license: "cc0", width: 1.2) >> hp(160) >> lp(9000)
+section intro 8 { play birds "x"  play water "x" }
+```
+
+`pulsar sounds "rain on leaves"` lists the candidates (length, license, author, page); pin
+one with `pick: N` or `id: "File:..."`. The first render downloads it (ffmpeg decodes it)
+into `~/.cache/pulsar/sounds` and remembers the choice, so the song keeps the same recording.
+`pulsar check` never touches the network.
+
+| setting | meaning |
+|---|---|
+| `license` | `"open"` (default: public domain, CC0 and CC BY), `"cc0"` (no attribution needed), `"by-sa"` (also share-alike) |
+| `pick`, `id` | take the N-th best match, or a specific recording by its id |
+| `fade` | seconds of fade in and out at the edges of each stretch (default 3) |
+| `start` | seconds into the recording to start from |
+| `min_length` | shortest recording to accept, in seconds (default 20; longer loops less) |
+
+Non-commercial and no-derivatives licenses are never used. Every render that uses ambience
+writes `<output>.credits.txt` (title, author, license, link): CC BY recordings must be
+credited wherever you publish the track, and a `"by-sa"` recording makes the track share-alike.
+Recordings are calibrated by their average loudness, so `gain:` behaves like any other track;
+field recordings often carry rumble, so `hp()` is usually worth adding.
+
 ## Effects
 
 Chain after an instrument with `>>`. The first positional argument is shown in bold.

@@ -89,8 +89,29 @@ def render(source: str, name: str = "song", stems: bool = False, format: str = "
         for k, a in res.stems.items():
             sf.write(d / f"{k}.wav", a.T, res.sr, subtype="PCM_24")
     report = format_report(analyze(res.mix, res.sr, score, res))
+    credits = [f"{c['track']}: {c['credit']}" for c in res.info.get("credits", [])]
+    if credits:
+        Path(path).with_name(Path(path).stem + ".credits.txt").write_text("\n".join(credits) + "\n")
+        credits = ["stock recordings used (credit them when sharing):"] + credits
     return "\n".join(output + [f"wrote {path} ({res.info['seconds']}s, rendered in {res.info['render_seconds']}s)",
-                               report])
+                               report] + credits)
+
+
+@server.tool()
+def search_sounds(query: str, license: str = "open", limit: int = 10) -> str:
+    """Search free stock recordings (birds, water, rain, wind, waves...) for ambience().
+    license: "cc0" (no attribution), "open" (CC0 + CC BY, default) or "by-sa".
+    Use a result with ambience("<query>", id: "<id>")."""
+    from . import stock
+
+    try:
+        results = stock.search(query, license)[:limit]
+    except PulsarError as e:
+        return e.msg
+    if not results:
+        return f"no {license}-licensed recordings found for {query!r}; try a broader query"
+    return "\n".join(f"pick {i}: {r.duration:.0f}s  {r.license}  id: {r.id!r}  by {r.creator or 'unknown'}"
+                     for i, r in enumerate(results))
 
 
 @server.tool()

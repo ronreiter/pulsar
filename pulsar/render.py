@@ -332,6 +332,73 @@ class Renderer:
                 buf[:, s:e] += out[:, :e - s] * (level * nt.vel / 0.8)
         return downsample(buf, OS)
 
+    # -- ambience ----------------------------------------------------------------------
+
+    def ambience_source(self, tr: Track):
+        """(wav path, stock.Sound) for an ambience track; downloaded once, then cached."""
+        from . import stock
+        opt = tr.inst.sample
+        return stock.resolve(opt["query"], opt["license"], opt["pick"], opt["id"], opt["min_length"])
+
+    def render_ambience(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
+        """Each run of back-to-back plays becomes one continuous stretch of the recording, looped
+        with an equal-power crossfade and faded in and out at its edges. The recording runs on
+        song time, so a bed that stops and starts picks up where the song is, not from the top."""
+        out = np.zeros((2, n_out), np.float32)
+        if part[0] != 0 or not notes:
+            return out
+        opt = tr.inst.sample
+        cache = self.__dict__.setdefault("_ambience", {})
+        path = str(self.ambience_source(tr)[0])
+        if path not in cache:
+            import soundfile as sf
+            x, sr = sf.read(path, always_2d=True, dtype="float32")
+            x = x.T
+            if x.shape[0] == 1:
+                x = np.repeat(x, 2, axis=0)
+            x = x[:2]
+            if sr != OUT_SR:
+                from math import gcd
+                from scipy.signal import resample_poly
+                g = gcd(OUT_SR, sr)
+                x = resample_poly(x, OUT_SR // g, sr // g, axis=1).astype(np.float32)
+            x = x - x.mean(axis=1, keepdims=True)
+            # Loop point: the tail crossfades into the head (equal power), so the loop has no seam.
+            xf = min(int(2.0 * OUT_SR), x.shape[1] // 4)
+            if xf > 16:
+                t = np.linspace(0, np.pi / 2, xf, dtype=np.float32)
+                loop = x[:, :-xf].copy()
+                loop[:, :xf] = x[:, :xf] * np.sin(t) + x[:, -xf:] * np.cos(t)
+            else:
+                loop = x
+            # Calibrate a steady bed by its average loudness (not its loudest moment, like a hit).
+            rms = math.sqrt(max(float((loop.astype(np.float64) ** 2).mean()), 1e-12))
+            cache[path] = loop * (10 ** (REF_MOMENTARY_DB / 20) / rms if rms > 1e-7 else 1.0)
+        loop = cache[path]
+        L = loop.shape[1]
+        spans = []
+        for nt in sorted(notes, key=lambda n: n.time):
+            a, b = nt.time, nt.time + nt.dur
+            if spans and a <= spans[-1][1] + 0.05:
+                spans[-1][1] = max(spans[-1][1], b)
+                spans[-1][2] = max(spans[-1][2], nt.vel)
+            else:
+                spans.append([a, b, nt.vel])
+        off = int(opt["start"] * OUT_SR)
+        for a, b, vel in spans:
+            s, e = int(round(a * OUT_SR)), min(n_out, int(round(b * OUT_SR)))
+            if e <= s:
+                continue
+            idx = (np.arange(s, e) + off) % L
+            seg = loop[:, idx] * (vel / 0.8)
+            f = min(int(opt["fade"] * OUT_SR), (e - s) // 2)
+            if f > 1:
+                ramp = np.sin(np.linspace(0, np.pi / 2, f, dtype=np.float32)) ** 2
+                seg[:, :f] *= ramp
+                seg[:, -f:] *= ramp[::-1]
+            out[:, s:e] += seg
+        return out
+
     # -- voices ------------------------------------------------------------------------
 
     def render_voice(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
@@ -529,6 +596,8 @@ class Renderer:
             return self.render_sampler(tr, notes, n, part)[:, :n]
         if tr.inst.kind == "voice":
             return self.render_voice(tr, notes, n, part)[:, :n]
+        if tr.inst.kind == "ambience":
+            return self.render_ambience(tr, notes, n, part)
         return self.render_synth(tr, notes, n, part)[:, :n]
 
     def post_audio(self, name: str, audio: np.ndarray) -> np.ndarray:
@@ -551,6 +620,8 @@ class Renderer:
         notes = self.score.notes.get(name, [])
         if tr.inst.kind in ("drums", "sampler"):
             return len(notes) * 0.02
+        if tr.inst.kind == "ambience":
+            return 0.0
         if tr.inst.kind == "voice":
             return len(notes) * 0.4
         uni = int(tr.inst.shape.get("unison", 1))
@@ -567,6 +638,18 @@ class Renderer:
         for name in self.song.tracks:
             if name not in active:
                 info["tracks"][name] = {"notes": 0}
+        # Fetch stock recordings here, once, before any worker needs them; keep who made them.
+        credits = []
+        for name in active:
+            tr = self.song.tracks[name]
+            if tr.inst.kind == "ambience":
+                self.log(f"  {name}: finding a recording for {tr.inst.sample['query']!r}")
+                snd = self.ambience_source(tr)[1]
+                self.log(f"  {name}: {snd.title} ({snd.license}, {snd.duration:.0f}s)")
+                credits.append({"track": name, "title": snd.title, "creator": snd.creator,
+                                "license": snd.license, "license_url": snd.license_url, "url": snd.page_url,
+                                "credit": snd.credit()})
+        info["credits"] = credits
         for name, (audio, secs) in self._track_results(active, jobs):
             tr = self.song.tracks[name]
             notes = self.score.notes[name]
