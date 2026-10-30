@@ -353,16 +353,19 @@ class Interp:
             bars = base.bars if base else Fraction(8)
         if bars <= 0:
             raise PulsarError("a section needs a positive number of bars", loc)
-        sec = Section(name, bars, loc=loc)
+        sec = Section(name, bars, loc=loc,
+                      body=None if block.meta.empty else (block.meta.start_pos, block.meta.end_pos))
         if base:
             sec.plays = [dc_replace(pl, inherited=True) for pl in base.plays]
             sec.autos = list(base.autos)
             sec.key, sec.swing = base.key, base.swing
         self.section = sec
+        self._section_stmts = {id(c) for c in block.children}
         try:
             self.exec_block(block.children, Env(env))
         finally:
             self.section = None
+            self._section_stmts = set()
         self.song.sections[name] = sec
         env.define(name, sec)
 
@@ -402,7 +405,9 @@ class Interp:
         # what it inherited for that track; further plays in the same section add.
         replaced = [p for p in sec.plays if p.inherited and p.track == str(name)]
         sec.plays = [p for p in sec.plays if not (p.inherited and p.track == str(name))]
-        sec.plays.append(Play(str(name), pat, start, end, loc_of(expr)))
+        span = None if node.meta.empty else (node.meta.start_pos, node.meta.end_pos)
+        sec.plays.append(Play(str(name), pat, start, end, loc_of(expr), span=span,
+                              direct=id(node) in getattr(self, "_section_stmts", set())))
         if replaced:
             sec.replaced = getattr(sec, "replaced", []) + [(str(name), replaced, sec.plays[-1])]
 
@@ -1158,6 +1163,18 @@ def b_choose(interp, options):
     return options[int(P.rand(interp.song.seed, 91, _rand_counter[0]) * len(options))]
 
 
+def b_clip(interp, bars):
+    """Concrete notes, one string per bar: "beat note length [velocity] [slide] [accent], ...".
+    Beats and lengths are in quarter notes (fractions like 1/3 are fine). The clip repeats
+    every len(bars) bars. Studio's note editor writes these."""
+    from .clip import clip_pattern
+    if isinstance(bars, str):
+        bars = [bars]
+    if not isinstance(bars, list) or not all(isinstance(b, str) for b in bars):
+        raise PulsarError('clip() takes a list of strings, one per bar: clip(["0 a4 1 .8, 1 c5 1", ""])')
+    return clip_pattern(bars)
+
+
 def b_note(interp, name):
     n = theory.note_number(str(name))
     if n is None:
@@ -1175,7 +1192,7 @@ def b_chord(interp, symbol, octave=4):
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
     "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano,
-    "seq": b_seq, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
+    "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,
     "min": lambda interp, *a: min(*a), "max": lambda interp, *a: max(*a), "abs": lambda interp, x: abs(x),

@@ -10,7 +10,7 @@ struct PulsarStudioApp: App {
         WindowGroup("Pulsar Studio") {
             ContentView(model: model)
                 .frame(minWidth: 1100, minHeight: 640)
-                .onAppear { openInitialFile() }
+                .onAppear { openInitialFile(); NoteEditorSelfTest.runIfRequested(studio: model) }
                 .onOpenURL { model.open($0) }
         }
         .windowStyle(.hiddenTitleBar)
@@ -77,7 +77,7 @@ struct PulsarStudioApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        if ProcessInfo.processInfo.environment["PULSAR_EDITOR_SELFTEST"] == nil { NSApp.activate(ignoringOtherApps: true) }
         NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 

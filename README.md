@@ -130,6 +130,10 @@ A native editor with an Ableton-style arrangement beside it: piano rolls for mel
 one row per voice for drums, automation curves under their tracks, sections on the ruler,
 and a playhead that lights up notes as they sound. The song recompiles as you type.
 
+Double-click a band (a track inside one section) to edit its notes in a piano-roll window: add,
+move, resize, copy and delete notes, set velocities, snap to a grid, then Apply. The band's code
+becomes a `clip([...])` of the notes in the editor (undo with ⌘Z there); other tracks are untouched.
+
 ```sh
 app/build_app.sh && open "app/build/Pulsar Studio.app"    # needs only the Xcode command line tools
 ```

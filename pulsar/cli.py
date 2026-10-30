@@ -225,6 +225,28 @@ def cmd_sounds(args):
     return 0
 
 
+def cmd_clip(args):
+    """Read one band (a track in a section) as notes, or write edited notes back into the source."""
+    from .clip import read_band, write_band
+    from .errors import PulsarError
+    from .interp import run
+
+    src = sys.stdin.read() if args.stdin else Path(args.file).read_text()
+    try:
+        song, _ = run(src, args.file)
+        if args.write:
+            notes = json.loads(Path(args.write).read_text() if args.write != "-" else "[]")
+            new = write_band(src, song, args.section, args.track, notes)
+            run(new, args.file)  # never hand back source that doesn't compile
+            print(json.dumps({"ok": True, "source": new}))
+        else:
+            print(json.dumps(read_band(song, args.section, args.track, args.at)))
+    except PulsarError as e:
+        print(json.dumps({"ok": False, "error": e.msg, "hint": e.hint}))
+        return 1
+    return 0
+
+
 def cmd_presets(args):
     from . import presets
 
@@ -317,6 +339,14 @@ def main(argv=None):
     tb.add_argument("-o", "--output", help="write the matched patch playing a test phrase")
     tb.set_defaults(fn=cmd_timbre)
     sub.add_parser("voices", help="list the text-to-speech voices for voice()").set_defaults(fn=cmd_voices)
+    cl = sub.add_parser("clip", help="read a track's notes in one section as JSON, or write edited notes back")
+    cl.add_argument("file")
+    cl.add_argument("--section", required=True)
+    cl.add_argument("--track", required=True)
+    cl.add_argument("--at", type=float, help="the bar where this instance of the section starts")
+    cl.add_argument("--write", help="a JSON file of notes [{beat, note, len, vel, flags}]: prints the new source")
+    cl.add_argument("--stdin", action="store_true", help="read the source from stdin (file is used for paths)")
+    cl.set_defaults(fn=cmd_clip)
     sd = sub.add_parser("sounds", help="search free stock recordings (birds, water, rain...) for ambience()")
     sd.add_argument("query")
     sd.add_argument("--license", choices=["cc0", "open", "by-sa"], default="open",

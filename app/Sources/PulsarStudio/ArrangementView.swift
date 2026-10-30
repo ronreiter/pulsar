@@ -133,6 +133,7 @@ struct ArrangementView: View {
                         if vertical { stretch(by: 1 + f, at: loc.y) } else { zoomAround(x: loc.x, factor: 1 + f, width: geo.size.width) }
                     },
                     onClick: { loc in click(at: loc, lanes: lanes) },
+                    onDoubleClick: { loc in openNoteEditor(at: loc, lanes: lanes) },
                     onHover: { loc in hoverInfo = hover(at: loc, lanes: lanes) })
                 if !hoverInfo.isEmpty {
                     Text(hoverInfo)
@@ -194,6 +195,16 @@ struct ArrangementView: View {
             model.selectedTrack = lane.track.name
             if loc.x < Self.headerW, let line = lane.track.line { model.jumpToLine = line }
         }
+    }
+
+    /// Double-clicking a band (a track inside one section) opens its notes in a note editor window.
+    private func openNoteEditor(at loc: CGPoint, lanes: [Lane]) {
+        guard loc.x > Self.headerW, loc.y > Self.rulerH, let lane = laneAt(loc.y, lanes), lane.kind != .automation,
+              let sections = model.score?.sections else { return }
+        let bar = barAt(loc.x)
+        guard let sec = sections.last(where: { $0.bar <= bar + 1e-9 }), bar < sec.bar + sec.bars else { return }
+        NoteEditorWindows.shared.open(studio: model, track: lane.track.name, section: sec.name, startBar: sec.bar,
+                                      colorIndex: lane.colorIndex)
     }
 
     private func hover(at loc: CGPoint, lanes: [Lane]) -> String {
@@ -465,6 +476,7 @@ struct InputCatcher: NSViewRepresentable {
     var onScroll: (CGFloat, CGFloat, Bool, Bool, CGPoint) -> Void  // dx, dy, zoom, vertical zoom, location
     var onMagnify: (CGFloat, Bool, CGPoint) -> Void  // factor, vertical, location
     var onClick: (CGPoint) -> Void
+    var onDoubleClick: (CGPoint) -> Void
     var onHover: (CGPoint) -> Void
 
     func makeNSView(context: Context) -> CatcherView {
@@ -500,7 +512,9 @@ struct InputCatcher: NSViewRepresentable {
         override func magnify(with e: NSEvent) {
             handlers?.onMagnify(e.magnification, e.modifierFlags.contains(.option), loc(e))
         }
-        override func mouseDown(with e: NSEvent) { handlers?.onClick(loc(e)) }
+        override func mouseDown(with e: NSEvent) {
+            if e.clickCount == 2 { handlers?.onDoubleClick(loc(e)) } else { handlers?.onClick(loc(e)) }
+        }
         override func mouseDragged(with e: NSEvent) {
             let p = loc(e)
             if p.y < ArrangementView.rulerH { handlers?.onClick(p) }

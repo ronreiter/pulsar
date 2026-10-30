@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import zlib
 from dataclasses import dataclass, field, replace
 from fractions import Fraction
 
@@ -115,6 +116,8 @@ class Play:
     end: Fraction | None
     loc: tuple | None = None
     inherited: bool = False
+    span: tuple | None = None  # (start, end) offsets of the play statement in the source
+    direct: bool = True  # written directly in the section block (not made by a loop or an if)
 
 
 @dataclass
@@ -136,6 +139,7 @@ class Section:
     key: tuple | None = None
     swing: float | None = None
     loc: tuple | None = None
+    body: tuple | None = None  # (start, end) offsets of the section's { ... } block
 
     def __repr__(self):
         return f"<section {self.name} ({self.bars} bars)>"
@@ -220,6 +224,20 @@ def build_score(source: str, filename: str = "<song>", only=None):
     return song, compile_song(song), output
 
 
+def play_ctx(song: Song, sec, idx: int, pi: int, track) -> Ctx:
+    """How the pi-th play of the idx-th section in the arrangement reads its pattern."""
+    inst = track.inst
+    key_pc, scale = sec.key if sec.key else (song.key_pc, song.scale)
+    kind = {"drums": "drums", "sampler": "slices" if inst.sample.get("slices") else "sample",
+            "voice": "sample", "ambience": "sample"}.get(inst.kind, "melodic")
+    # Seeded by the track and how many plays of it came before, not by the play's place among all of
+    # the section's plays: rewriting one track's plays (the note editor) leaves the others' randomness alone.
+    k = sum(1 for p in sec.plays[:pi] if p.track == track.name)
+    tseed = zlib.crc32(track.name.encode()) % 1000003
+    return Ctx(kind=kind, key_pc=key_pc, scale=tuple(scale), octave=int(track.mixer.get("octave", inst.octave)),
+               seed=song.seed * 7919 + idx * 104729 + tseed * 131 + k * 31)
+
+
 def compile_song(song: Song) -> Score:
     arrangement = song.arrangement or list(song.sections.values())
     if not arrangement:
@@ -240,11 +258,7 @@ def compile_song(song: Song) -> Score:
             end = sec.bars if play.end is None else min(play.end, sec.bars)
             if end <= start:
                 continue
-            kind = {"drums": "drums", "sampler": "slices" if inst.sample.get("slices") else "sample",
-                    "voice": "sample", "ambience": "sample"}.get(inst.kind, "melodic")
-            ctx = Ctx(kind=kind, key_pc=key_pc, scale=tuple(scale),
-                      octave=int(track.mixer.get("octave", inst.octave)),
-                      seed=song.seed * 7919 + idx * 104729 + pi * 31)
+            ctx = play_ctx(song, sec, idx, pi, track)
             pat = play.pattern
             tsw = track.mixer.get("swing", swing)
             if tsw:

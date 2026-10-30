@@ -123,6 +123,20 @@ On drum tracks steps are voice names: `bd sd cp hh oh rd cr lt mt ht rim cb sh p
 A drum track can play several voices at once with `,`:
 `play kit "bd*4, ~ cp ~ cp, [~ hh]*4, ~ ~ ~ oh"`.
 
+### Clips: notes written out
+
+`clip([...])` is a pattern of concrete notes, one string per bar, each note
+`beat note length [velocity] [slide] [accent]` (beats and lengths in quarter notes; `1/3` for
+triplets). It repeats every as many bars as it has strings. Pulsar Studio's note editor writes
+these when you edit a band by hand; they're ordinary code you can edit too.
+
+```
+play melody clip([
+  "0 a5 1.5 .78, 1.5 f#5 1.5 .78, 3 e5 1 .62",   // bar 1
+  "0 d5 2 .78",                                  // bar 2
+]) from 8
+```
+
 ## Pattern methods
 
 Any string or pattern takes these (chain them):
