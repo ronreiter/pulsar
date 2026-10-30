@@ -182,6 +182,39 @@ Shape settings for `analog` presets/engine: `wave1`, `wave2` (`saw square pulse 
 
 Tempo-synced LFO rates: `flfo_sync: 1/8` (filter wobble), `vib_sync`, `trem_sync`.
 
+## Pianos (sampled)
+
+`piano("grand")` is a real acoustic piano, not a synthesis of one: recordings of every few keys
+at many velocities, played back through their SFZ map. Each note plays the nearest recorded
+key at its velocity layer (re-pitched by at most a semitone or two), the dampers stop the
+string when the key comes up, and the set's key-up recordings (string resonance, hammer and
+damper noise) sound as a real piano's do.
+
+| name | instrument | layers | license | download (once) |
+|---|---|---|---|---|
+| `"grand"` (default) | Salamander Grand Piano V3, Yamaha C5 (Alexander Holm) | 16 | CC BY 3.0 | ~410 MB |
+| `"upright"` | Upright Piano KW, a Kawai upright (FreePats) | 2 | CC0 | ~33 MB |
+
+```
+track keys   = piano("grand", pedal: 0.4, hall: 0.4)
+track melody = piano("grand", pedal: 0.6, gain: 3)
+section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8)  play melody "<[a5 _ f#5 _] d5>" }
+```
+
+| setting | meaning |
+|---|---|
+| `pedal` | seconds each note keeps ringing after its length, like half-pedalling (default 0) |
+| `release` | damper time in seconds (default: the set's own, ~1 s for the grand) |
+| `dynamics` | 0-2: how much velocity changes loudness on top of the velocity layers (1 = as mapped) |
+| `resonance`, `hammer` | 0-1+: level of the key-up string resonance and of the hammer/damper noise |
+| `transpose` | semitones |
+
+Velocity (`.vel()`) picks the layer, so soft notes are darker and loud ones brighter, as on
+the instrument. The samples are downloaded and unpacked into `~/.cache/pulsar/instruments` on
+the first render (`pulsar check` stays offline). The grand is CC BY: renders that use it list
+it in `<output>.credits.txt`. Real pianos are stretch-tuned (the bass sits a few cents flat),
+which blends with synths at A440 without beating noticeably.
+
 ## Samples
 
 `sampler("path.wav", ...)` plays an audio file (WAV, AIFF, FLAC, OGG; paths are relative

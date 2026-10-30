@@ -332,6 +332,104 @@ class Renderer:
                 buf[:, s:e] += out[:, :e - s] * (level * nt.vel / 0.8)
         return downsample(buf, OS)
 
+    # -- sampled piano -----------------------------------------------------------------
+
+    def piano_set(self, tr: Track):
+        """(regions, level) for a piano track: its SFZ map, and the gain that puts a mezzo-forte
+        middle C at the reference level (so dynamics between notes stay as recorded)."""
+        from . import piano
+        name = tr.inst.sample["name"]
+        cache = self.__dict__.setdefault("_pianos", {})
+        if name not in cache:
+            regions = piano.parse_sfz(piano.install(name, self.log))
+            ref = piano.find(regions, 60, 96)
+            x = self.piano_wave(ref.path)
+            win = int(0.2 * OUT_SR)
+            sq = (x[:, : 4 * OUT_SR].astype(np.float64) ** 2).mean(axis=0)
+            c = np.concatenate([[0], np.cumsum(sq)])
+            rms = math.sqrt(max(float(((c[win:] - c[:-win]) / win).max()), 1e-12))
+            amp = 1 + ref.veltrack * ((96 / 127) ** 2 - 1)
+            cache[name] = (regions, 10 ** (REF_MOMENTARY_DB / 20) / (rms * amp * 10 ** (ref.volume / 20)))
+        return cache[name]
+
+    def piano_wave(self, path) -> np.ndarray:
+        cache = self.__dict__.setdefault("_piano_waves", {})
+        if path not in cache:
+            import soundfile as sf
+            x, sr = sf.read(str(path), always_2d=True, dtype="float32")
+            x = x.T
+            if x.shape[0] == 1:
+                x = np.repeat(x, 2, axis=0)
+            cache[path] = (x[:2], sr)
+        return cache[path][0]
+
+    def piano_note(self, r, key: float, need: float) -> np.ndarray:
+        """A region's recording re-pitched to `key` at the output rate, at least `need` seconds when it loops."""
+        from fractions import Fraction as Fr
+        from scipy.signal import resample_poly
+        cache = self.__dict__.setdefault("_piano_notes", {})
+        x = self.piano_wave(r.path)
+        sr = self.__dict__["_piano_waves"][r.path][1]
+        if r.loop and x.shape[1] / sr < need:
+            a, b = r.loop
+            reps = int((need * sr - x.shape[1]) / max(b - a, 1)) + 1
+            x = np.concatenate([x[:, :b]] + [x[:, a:b]] * reps, axis=1)
+        semis = (key - r.center) * r.keytrack + r.tune / 100
+        k = (r.path, round(semis, 4), x.shape[1])
+        if k not in cache:
+            ratio = Fr(OUT_SR / sr / 2 ** (semis / 12)).limit_denominator(2000)
+            cache[k] = x if ratio == 1 else resample_poly(x, ratio.numerator, ratio.denominator, axis=1).astype(np.float32)
+            if len(cache) > 400:
+                cache.pop(next(iter(cache)))
+        return cache[k]
+
+    def render_piano(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
+        """Each note plays the recorded key nearest to it at its velocity layer; when the key comes up the
+        damper stops the string over the set's release time, and the set's release recordings (string
+        resonance, hammer and damper noise) sound, quieter the longer the key was held."""
+        from . import piano
+        opt = tr.inst.sample
+        regions, level = self.piano_set(tr)
+        out = np.zeros((2, n_out), np.float32)
+        for i, nt in enumerate(notes):
+            if i % part[1] != part[0] or nt.pitch is None:
+                continue
+            key = nt.pitch + opt["transpose"]
+            vel = int(min(127, max(1, round(nt.vel * 127))))
+            r = piano.find(regions, int(round(key)), vel)
+            if r is None:
+                continue
+            hold = nt.dur + opt["pedal"]
+            rel = opt["release"] if opt["release"] is not None else r.release
+            x = self.piano_note(r, key, hold + rel)
+            amp = (1 + r.veltrack * opt["dynamics"] * ((vel / 127) ** 2 - 1)) * 10 ** (r.volume / 20)
+            stop = int(hold * OUT_SR)
+            if stop < x.shape[1]:
+                # Dampers: an exponential fade reaching -60 dB over the release time.
+                n_rel = max(16, int(rel * OUT_SR))
+                end = min(x.shape[1], stop + n_rel)
+                y = x[:, :end].copy()
+                y[:, stop:end] *= np.exp(np.linspace(0, -6.9, end - stop, dtype=np.float32))
+            else:
+                y = x
+            s0 = int(round(nt.time * OUT_SR))
+            e0 = min(n_out, s0 + y.shape[1])
+            if e0 > s0:
+                out[:, s0:e0] += y[:, :e0 - s0] * (amp * level)
+            # Key-up sounds.
+            t_off = s0 + stop
+            for rr in piano.releases(regions, int(round(key)), vel):
+                mix = opt["hammer"] if rr.keytrack == 0 else opt["resonance"]
+                if mix <= 0:
+                    continue
+                z = self.piano_note(rr, key, 0)
+                g = mix * level * 10 ** ((rr.volume - rr.rt_decay * hold) / 20)
+                g *= 1 + rr.veltrack * ((vel / 127) ** 2 - 1)
+                e1 = min(n_out, t_off + z.shape[1])
+                if e1 > t_off and g > 1e-5:
+                    out[:, t_off:e1] += z[:, :e1 - t_off] * g
+        return out
+
     # -- ambience ----------------------------------------------------------------------
 
     def ambience_source(self, tr: Track):
@@ -598,6 +696,8 @@ class Renderer:
             return self.render_voice(tr, notes, n, part)[:, :n]
         if tr.inst.kind == "ambience":
             return self.render_ambience(tr, notes, n, part)
+        if tr.inst.kind == "piano":
+            return self.render_piano(tr, notes, n, part)
         return self.render_synth(tr, notes, n, part)[:, :n]
 
     def post_audio(self, name: str, audio: np.ndarray) -> np.ndarray:
@@ -622,6 +722,8 @@ class Renderer:
             return len(notes) * 0.02
         if tr.inst.kind == "ambience":
             return 0.0
+        if tr.inst.kind == "piano":
+            return len(notes) * 0.03
         if tr.inst.kind == "voice":
             return len(notes) * 0.4
         uni = int(tr.inst.shape.get("unison", 1))
@@ -649,6 +751,13 @@ class Renderer:
                 credits.append({"track": name, "title": snd.title, "creator": snd.creator,
                                 "license": snd.license, "license_url": snd.license_url, "url": snd.page_url,
                                 "credit": snd.credit()})
+        from . import piano as _piano
+        for kind_name in sorted({self.song.tracks[n].inst.sample["name"] for n in active
+                                 if self.song.tracks[n].inst.kind == "piano"}):
+            _piano.install(kind_name, self.log)
+            users = [n for n in active if self.song.tracks[n].inst.kind == "piano"
+                     and self.song.tracks[n].inst.sample["name"] == kind_name]
+            credits.append(dict(_piano.credit(kind_name), track=", ".join(users)))
         info["credits"] = credits
         for name, (audio, secs) in self._track_results(active, jobs):
             tr = self.song.tracks[name]

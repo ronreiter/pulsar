@@ -1,6 +1,8 @@
 """Evaluate a parsed Pulsar program into a Song."""
 from __future__ import annotations
 
+import re
+
 import inspect
 import math
 from dataclasses import replace as dc_replace
@@ -97,6 +99,10 @@ def to_pattern(v, loc=None, what="pattern"):
     if isinstance(v, list):
         return P.slowcat([to_pattern(x, loc) for x in v])
     raise PulsarError(f"expected a {what} (a string like \"bd sd\" or a pattern), got {type_name(v)}", loc)
+
+
+def callable_value(v):
+    return isinstance(v, (Function, Bound, Builtin))
 
 
 def type_name(v):
@@ -707,6 +713,11 @@ class Interp:
         fn_node, args_node = node.children
         loc = loc_of(node)
         fn = self.eval(fn_node, env)
+        if (isinstance(fn_node, Tree) and fn_node.data == "name" and not callable_value(fn)
+                and str(fn_node.children[0]) in BUILTINS):
+            name, what = str(fn_node.children[0]), re.sub(r"^an? ", "", type_name(fn))
+            raise PulsarError(f"{name}() can't be used here: {name!r} is your {what}, which hides the built-in "
+                              f"{name}()", loc, hint=f"rename the {what} (e.g. {name}s or {name}_part)")
         args, kwargs = [], {}
         if args_node is not None:
             for a in args_node.children:
@@ -933,6 +944,34 @@ def b_sampler(interp, path, **kw):
     return Instrument("sampler", p.name, "sampler", {}, {}, False, octave, mix, base_gain=-6.0, sample=opts)
 
 
+PIANO_KEYS = {"release", "pedal", "resonance", "hammer", "dynamics", "transpose"}
+
+
+def b_piano(interp, name="grand", **kw):
+    """A sampled acoustic piano: "grand" (Yamaha C5, 16 velocity layers) or "upright" (Kawai).
+    The samples download once on the first render."""
+    from . import piano
+    if str(name) not in piano.PIANOS:
+        raise PulsarError(f"no piano named {name!r}", hint=f"use {' or '.join(repr(k) for k in piano.PIANOS)}")
+    opts = {"name": str(name), "release": None, "pedal": 0.0, "resonance": 1.0, "hammer": 1.0, "dynamics": 1.0,
+            "transpose": 0.0}
+    mixer = {}
+    for k, v in kw.items():
+        if k in presets.MIXER_KEYS or k in interp.song.buses:
+            mixer[k] = v
+        elif k in PIANO_KEYS:
+            opts[k] = float(num(v, None, k))
+        else:
+            raise PulsarError(f"piano() has no parameter {k!r}", hint=suggest(k, list(PIANO_KEYS) + list(presets.MIXER_KEYS)))
+    for k in ("pedal", "resonance", "hammer", "dynamics"):
+        if opts[k] < 0:
+            raise PulsarError(f"piano {k} can't be negative")
+    octave = int(mixer.pop("octave", 4))
+    mix = {"gain": 0.0}
+    mix.update(mixer)
+    return Instrument("piano", str(name), "piano", {}, {}, False, octave, mix, base_gain=-4.0, sample=opts)
+
+
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
 
 
@@ -1135,7 +1174,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano,
     "seq": b_seq, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,

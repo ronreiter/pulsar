@@ -151,7 +151,7 @@ enum Highlighter {
     static let keywords = ["tempo", "key", "swing", "seed", "loudness", "ceiling", "track", "bus", "master", "section",
                            "extends", "play", "from", "to", "at", "mute", "automate", "arrange", "let", "fn", "return",
                            "if", "elif", "else", "for", "in", "repeat", "true", "false", "none", "and", "or", "not"]
-    static let builtins = ["synth", "drums", "analog", "fm", "pluck", "sampler", "voice", "ambience", "reverb", "delay", "chorus", "drive",
+    static let builtins = ["synth", "drums", "analog", "fm", "pluck", "sampler", "voice", "ambience", "piano", "reverb", "delay", "chorus", "drive",
                            "dist", "crush", "lofi", "filter", "lp", "hp", "eq", "comp", "width", "phaser", "tremolo",
                            "gain", "pan", "tone", "seq", "cat", "stack", "euclid", "ramp", "lfo", "print", "range",
                            "len", "rand", "choose", "note", "chord", "silence"]

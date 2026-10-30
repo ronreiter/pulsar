@@ -1,5 +1,6 @@
 // Still Water: relaxing spa music. D major, 64 BPM, ~4 minutes.
-// A soft felt piano over slow pads, with a real dawn chorus and a trickling stream under everything.
+// A sampled grand piano, played softly over slow pads, with a real dawn chorus and a trickling
+// stream under everything.
 // The birds and the water are free stock recordings found by ambience() -- `pulsar sounds "birds"`
 // lists the candidates -- and the render writes still_water.credits.txt with who recorded them.
 tempo 64
@@ -16,18 +17,13 @@ track birds = ambience("dawn chorus", id: "File:Dawn chorus at Glencairnie big b
 track water = ambience("water trickle", id: "File:363120 fractalstudios water-trickle.wav", fade: 8,
                        width: 1.2, gain: -7) >> hp(160) >> lp(9000)
 
-// ---- piano: a soft felt tone, warm and close ---------------------------------------------------
-track piano = fm(ratio1: 1, index1: 1.1, idecay1: 0.9, isustain1: 0.05, ratio2: 2, index2: 0.25, idecay2: 0.4,
-                 carrier2: 0.25, cratio2: 2, detune: 0.35, drift: 0.15, attack: 0.004, decay: 4, sustain: 0,
-                 release: 1.2, brightness: 0.5, vel_index: 0.7, octave: 4, hall: 0.45, gain: 0)
-  >> hp(90) >> eq(low: -3, high: -1)
-track melody = fm(ratio1: 1, index1: 1.3, idecay1: 1.1, isustain1: 0.05, ratio2: 2, index2: 0.25, idecay2: 0.4,
-                  carrier2: 0.25, cratio2: 2, detune: 0.3, attack: 0.004, decay: 5, sustain: 0, release: 1.5,
-                  brightness: 0.72, vel_index: 0.7, octave: 5, hall: 0.5, pan: 0.1, gain: 7)
-  >> hp(200) >> delay(3/8, feedback: 0.3, mix: 0.12, tone: 0.4, pingpong: 1)
+// ---- piano: a sampled Yamaha C5 grand, played softly ------------------------------------------
+track keys   = piano("grand", pedal: 0.4, hall: 0.4, gain: 0) >> hp(80) >> eq(low: -3.5)
+track melody = piano("grand", pedal: 0.6, hall: 0.45, pan: 0.08, gain: 6)
+  >> delay(3/8, feedback: 0.25, mix: 0.08, tone: 0.4, pingpong: 1)
 
 // ---- air: pads, a low cello-ish drone, glass bells --------------------------------------------
-track pad   = synth("pad", attack: 3, release: 5, cutoff: 0.22, width: 1.7, hall: 0.6, gain: -9, octave: 3)
+track pad   = synth("pad", attack: 3, release: 5, cutoff: 0.22, width: 1.7, hall: 0.6, gain: -5, octave: 3)
   >> hp(260) >> chorus(0.35)
 track glass = synth("glass_pad", attack: 4, release: 6, hall: 0.7, width: 1.5, gain: -8)
 track low   = synth("strings", attack: 2.5, release: 4, cutoff: 0.25, hall: 0.4, gain: -6, octave: 2) >> lp(900)
@@ -49,7 +45,7 @@ section dawn 8 {
   play birds "x"
   play water "x"
   play pad prog_home.voicing("smooth") from 2
-  play piano roll(prog_home) from 4
+  play keys roll(prog_home) from 4
   automate pad.cutoff 0.12 -> 0.22 from 2
 }
 
@@ -58,9 +54,9 @@ section first 16 {
   play water "x"
   play pad prog_home.voicing("smooth")
   play low roots_home.oct(1).legato(1)
-  play piano roll(prog_home)
-  play piano roots_home.legato(0.95).vel(0.55)
-  play melody theme.vel("0.7 0.55") from 8
+  play keys roll(prog_home)
+  play keys roots_home.legato(0.95).vel(0.55)
+  play melody theme.vel("0.78 0.62") from 8
   play bell sparkle from 8
   automate birds.gain -1 -> -4 from 8
 }
@@ -71,9 +67,9 @@ section away 16 {
   play pad prog_away.voicing("smooth")
   play glass prog_away.voicing("smooth").legato(1)
   play low roots_away.oct(1).legato(1)
-  play piano roll(prog_away)
-  play piano roots_away.legato(0.95).vel(0.55)
-  play melody reply.vel("0.65 0.5")
+  play keys roll(prog_away)
+  play keys roots_away.legato(0.95).vel(0.55)
+  play melody reply.vel("0.74 0.6")
   automate pad.cutoff 0.22 -> 0.3
   automate birds.gain -4
 }
@@ -84,9 +80,9 @@ section home 16 {
   play pad prog_home.voicing("smooth")
   play glass prog_home.voicing("smooth").legato(1) to 8
   play low roots_home.oct(1).legato(1)
-  play piano roll(prog_home)
-  play piano roots_home.legato(0.95).vel(0.55)
-  play melody theme.vel("0.75 0.55")
+  play keys roll(prog_home)
+  play keys roots_home.legato(0.95).vel(0.55)
+  play melody theme.vel("0.82 0.64")
   play bell sparkle
   automate pad.cutoff 0.3 -> 0.2
   automate birds.gain -4 -> -1 from 8
@@ -96,9 +92,9 @@ section dusk 10 {
   play birds "x"
   play water "x"
   play pad prog_home.voicing("smooth") to 6
-  play piano roll(prog_home) to 6
-  play piano "<d2 g1 e2 a1>".legato(0.95).vel(0.5) to 6
-  play piano "d3 a3 e4 f#4".legato(4).vel(0.5) at 6
+  play keys roll(prog_home) to 6
+  play keys "<d2 g1 e2 a1>".legato(0.95).vel(0.5) to 6
+  play keys "d3 a3 e4 f#4".legato(4).vel(0.5) at 6
   automate master.gain 0 -> -24 from 6
 }
 
