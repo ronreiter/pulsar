@@ -193,7 +193,7 @@ final class NoteEditorModel: ObservableObject {
     func apply(thenPlay: Bool = false) {
         guard readOnlyReason == nil else { NSSound.beep(); return }
         let out = notes.map { n in
-            BandNote(beat: n.beatText ?? beatText(n.beat), len: n.lenText ?? beatText(n.len), vel: (n.vel * 100).rounded() / 100,
+            BandNote(beat: n.beatText ?? beatText(n.beat), len: n.lenText ?? beatText(n.len), vel: (n.vel * 10000).rounded() / 10000,
                      flags: n.flags, note: token(for: n), pitch: kind == "notes" ? Double(rowPitch[n.row]) : nil)
         }
         guard let data = try? JSONEncoder().encode(out) else { return }

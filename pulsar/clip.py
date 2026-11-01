@@ -150,7 +150,7 @@ def read_band(song, section: str, track: str, at: float | None = None) -> dict:
             length = (ev.e - ev.b) * F(ev.v.get("legato", 1)).limit_denominator(1000)
             if play.end is not None:
                 length = min(length, end - play.start - sev.b)
-            vel = round(float(ev.v.get("vel", 0.8)), 3)
+            vel = round(float(ev.v.get("vel", 0.8)), 4)
             flags = [f for f in FLAGS if ev.v.get(f)]
             base = {"beat": _fmt(b * BEATS), "len": _fmt(length * BEATS), "vel": vel, "flags": flags}
             if "drum" in ev.v:
@@ -207,7 +207,7 @@ def clip_source(notes: list[dict], bars: int, indent: str) -> str:
 
 
 def _vel(v: float) -> str:
-    s = f"{max(0.0, min(1.0, v)):.2f}".rstrip("0").rstrip(".")
+    s = f"{max(0.0, min(1.0, v)):.4f}".rstrip("0").rstrip(".")
     return s[1:] if s.startswith("0.") else (s or "0")
 
 
