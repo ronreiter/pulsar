@@ -12,6 +12,7 @@ import json
 import math
 import os
 import time
+import zlib
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
@@ -43,6 +44,31 @@ class RenderResult:
     sr: int
     stems: dict = field(default_factory=dict)
     info: dict = field(default_factory=dict)
+
+
+# Extra players in an ensemble: (detune cents, delay seconds, pan). Player 1 is the recording as is.
+ENSEMBLE = [(0, 0.0, 0.0), (7, 0.011, -0.45), (-6, 0.019, 0.45), (3, 0.006, -0.2), (-9, 0.025, 0.2), (5, 0.015, 0.0)]
+# Low thump under the big drums: (start Hz, end Hz, decay seconds)
+THUMP = {"taiko": (115, 50, 0.32), "taikos": (125, 56, 0.26), "taikoh": (120, 55, 0.28), "bd": (95, 40, 0.45),
+         "bdm": (100, 45, 0.25), "tenor": (140, 70, 0.22), "timp": (90, 46, 0.5), "timph": (110, 58, 0.45),
+         "gong": (70, 36, 0.9)}
+_THUMPS: dict = {}
+
+
+def thump_wave(spec) -> np.ndarray:
+    if spec not in _THUMPS:
+        f0, f1, dec = spec
+        t = np.arange(int((dec * 5) * OUT_SR)) / OUT_SR
+        f = f1 + (f0 - f1) * np.exp(-t / 0.04)
+        ph = 2 * np.pi * np.cumsum(f) / OUT_SR
+        env = np.exp(-t / dec) * (1 - np.exp(-t / 0.0015))
+        body = np.sin(ph) * env
+        # ...and a short bright crack on top, so the hit cuts through a full orchestra
+        rng = np.random.default_rng(int(f0 * 1000 + f1))
+        noise = np.diff(rng.standard_normal(len(t) + 1))  # tilted towards the highs
+        crack = noise * np.exp(-t / 0.007) * 0.12
+        _THUMPS[spec] = (body + crack).astype(np.float32)
+    return _THUMPS[spec]
 
 
 class Renderer:
@@ -374,11 +400,24 @@ class Renderer:
         cache = self.__dict__.setdefault("_piano_waves", {})
         if path not in cache:
             import soundfile as sf
+
+            from .orchestra import HOME
             x, sr = sf.read(str(path), always_2d=True, dtype="float32")
             x = x.T
             if x.shape[0] == 1:
                 x = np.repeat(x, 2, axis=0)
-            cache[path] = (x[:2], sr)
+            x = x[:2]
+            if str(path).startswith(str(HOME)):
+                # Some orchestral recordings start up to 100 ms before the sound does, which makes
+                # their notes land late: start each one just before its onset (-50 dB from its peak).
+                lvl = np.abs(x).max(axis=0)
+                on = int(np.argmax(lvl > lvl.max() * 10 ** (-50 / 20)))
+                start = max(0, on - int(0.004 * sr))
+                if start > 0:
+                    x = x[:, start:].copy()
+                    f = min(int(0.002 * sr), x.shape[1])
+                    x[:, :f] *= np.linspace(0, 1, f, dtype=np.float32)
+            cache[path] = (x, sr)
         return cache[path][0]
 
     def piano_note(self, r, key: float, need: float) -> np.ndarray:
@@ -429,10 +468,14 @@ class Renderer:
         stops over the release time (a piano's dampers, a bow lifting), and a piano's key-up
         recordings (string resonance, hammer and damper noise) sound, quieter the longer it was held."""
         from . import piano
+        from .pattern import rand as prand
         opt = tr.inst.sample
         bank = self.piano_set(tr)
         kit = opt.get("kit")
         out = np.zeros((2, n_out), np.float32)
+        tseed = zlib.crc32(tr.name.encode()) % 1000003
+        players = max(1, min(len(ENSEMBLE), int(opt.get("players", 1))))
+        hum = float(opt.get("humanize", 0.0)) / 1000
         for i, nt in enumerate(notes):
             if i % part[1] != part[0]:
                 continue
@@ -452,31 +495,54 @@ class Renderer:
                     continue
                 regions, level = bank
                 key = nt.pitch + opt["transpose"]
-            vel = int(min(127, max(1, round(nt.vel * 127))))
-            r = piano.find(regions, int(round(key)), vel, rr=i)
-            if r is None:
-                continue
-            hold = nt.dur + opt.get("pedal", 0.0) + opt.get("hold", 0.0)
-            rel = opt["release"] if opt.get("release") is not None else r.release
-            if kit:
-                rel = 0.12
-            x = self.piano_note(r, key, hold + rel)
-            amp = (1 + r.veltrack * opt["dynamics"] * ((vel / 127) ** 2 - 1)) * 10 ** (r.volume / 20)
-            stop = int(hold * OUT_SR)
-            if kit and not voice.endswith("roll"):
-                y = x  # percussion rings out (rolls stop with their note, so a roll can cut dead)
-            elif stop < x.shape[1]:
-                # Release: an exponential fade reaching -60 dB over the release time.
-                n_rel = max(16, int(rel * OUT_SR))
-                end = min(x.shape[1], stop + n_rel)
-                y = x[:, :end].copy()
-                y[:, stop:end] *= np.exp(np.linspace(0, -6.9, end - stop, dtype=np.float32))
-            else:
-                y = x
+            # A person plays it: a few ms early or late, a little louder or softer, every note different.
+            jitter = (prand(self.song.seed, tseed, i, 1) - 0.5) * 2 * hum
+            v = nt.vel * (1 + (prand(self.song.seed, tseed, i, 2) - 0.5) * 0.12) if hum else nt.vel
+            vel = int(min(127, max(1, round(v * 127))))
+            for k in range(players):
+                cents, delay, pan = ENSEMBLE[k]
+                r = piano.find(regions, int(round(key)), vel, rr=i + k)
+                if r is None:
+                    continue
+                hold = nt.dur + opt.get("pedal", 0.0) + opt.get("hold", 0.0)
+                if r.loop == "auto":
+                    hold += 0.1  # sustained notes overlap the next a little, like legato bowing / breath
+                rel = opt["release"] if opt.get("release") is not None else r.release
+                if kit:
+                    rel = 0.12
+                x = self.piano_note(r, key + (cents / (300 if kit else 100)), hold + rel)
+                amp = (1 + r.veltrack * opt["dynamics"] * ((vel / 127) ** 2 - 1)) * 10 ** (r.volume / 20)
+                amp /= math.sqrt(players)
+                stop = int(hold * OUT_SR)
+                if kit and not voice.endswith("roll"):
+                    y = x  # percussion rings out (rolls stop with their note, so a roll can cut dead)
+                elif stop < x.shape[1]:
+                    # Release: an exponential fade reaching -60 dB over the release time.
+                    n_rel = max(16, int(rel * OUT_SR))
+                    end = min(x.shape[1], stop + n_rel)
+                    y = x[:, :end].copy()
+                    y[:, stop:end] *= np.exp(np.linspace(0, -6.9, end - stop, dtype=np.float32))
+                else:
+                    y = x
+                spread = (prand(self.song.seed, tseed, i, 3 + k) - 0.5) * hum if k else 0.0
+                s0 = int(round((nt.time + jitter + delay + spread) * OUT_SR))
+                if s0 < 0:
+                    y, s0 = y[:, -s0:], 0
+                e0 = min(n_out, s0 + y.shape[1])
+                if e0 > s0:
+                    gl, gr = math.cos((pan + 1) * math.pi / 4) * math.sqrt(2), math.sin((pan + 1) * math.pi / 4) * math.sqrt(2)
+                    out[0, s0:e0] += y[0, :e0 - s0] * (amp * level * gl)
+                    out[1, s0:e0] += y[1, :e0 - s0] * (amp * level * gr)
+            if kit and opt.get("thump", 0) > 0 and voice in THUMP:
+                # The trailer-drum low end: a pitched-down sine thump under the skin.
+                z = thump_wave(THUMP[voice])
+                s0 = int(round((nt.time + jitter) * OUT_SR))
+                e0 = min(n_out, s0 + len(z))
+                if e0 > s0:
+                    g = opt["thump"] * 0.35 * (vel / 127) ** 1.5 * 10 ** (opt["levels"].get(voice, 0.0) / 20)
+                    out[:, s0:e0] += z[:e0 - s0] * g
+            stop = int((nt.dur + opt.get("pedal", 0.0)) * OUT_SR)
             s0 = int(round(nt.time * OUT_SR))
-            e0 = min(n_out, s0 + y.shape[1])
-            if e0 > s0:
-                out[:, s0:e0] += y[:, :e0 - s0] * (amp * level)
             if tr.inst.kind != "piano":
                 continue
             # Key-up sounds.

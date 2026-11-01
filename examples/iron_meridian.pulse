@@ -1,72 +1,86 @@
-// Iron Meridian: epic orchestral trailer music. D minor, 116 BPM, ~3:20.
+// Iron Meridian: epic orchestral trailer music. D minor, 116 BPM, ~2:50.
 // A real (sampled) orchestra -- VSCO-2 CE strings, brass and percussion -- in the big-cinematic
 // style: a ticking pulse in the dark, a spiccato string ostinato that never lets go, a horn theme
-// in the low register, and a sixteen-bar build that climbs a semitone every two bars (D minor up
-// to an A major chord) while the drums double and double again, a cymbal swells and the rolls
-// cut dead for one beat of silence -- then the whole orchestra, a gong and a sub boom land at once.
+// in the low register, and war drums: three taiko players with a sub thump under every hit.
+// Sections are doubled (`players`), every note is played a little early or late and a little
+// louder or softer (orchestra() humanizes by default), and chords are held, not re-struck.
 tempo 116
 key "D minor"
 seed 7
 loudness -13
+master = eq(high: 2, high_freq: 7000)
 
 bus hall = reverb(decay: 3.8, size: 0.92, damp: 0.42, predelay: 0.03, lowcut: 140)
 bus room = reverb(decay: 1.6, size: 0.6, damp: 0.5, predelay: 0.01)
+bus arena = reverb(decay: 2.6, size: 0.85, damp: 0.3, predelay: 0.02, lowcut: 90)
 
 // ---- strings -------------------------------------------------------------------------------------
-track violins = orchestra("violins", hall: 0.4, pan: -0.35, width: 1.2, gain: 4)
-track trem    = orchestra("violins_trem", hall: 0.4, pan: -0.25, gain: -2)
-track violas  = orchestra("violas", hall: 0.35, pan: 0.15)
-track vla_sp  = orchestra("violas_spic", room: 0.25, hall: 0.2, pan: 0.25, gain: -2)
-track celli   = orchestra("celli", hall: 0.35, pan: 0.3)
-track vc_sp   = orchestra("celli_spic", room: 0.25, hall: 0.2, pan: 0.2, gain: 1)
-track cb_sp   = orchestra("basses_spic", room: 0.2, hall: 0.15, gain: -1)
+track violins = orchestra("violins", players: 3, hall: 0.4, pan: -0.35, width: 1.2, gain: 4)
+track trem    = orchestra("violins_trem", players: 2, hall: 0.4, pan: -0.25, gain: -2)
+track violas  = orchestra("violas", players: 2, hall: 0.35, pan: 0.15)
+track vla_sp  = orchestra("violas_spic", players: 2, room: 0.25, hall: 0.2, pan: 0.25, gain: -2)
+track celli   = orchestra("celli", players: 2, hall: 0.35, pan: 0.3)
+track vc_sp   = orchestra("celli_spic", players: 2, room: 0.25, hall: 0.2, pan: 0.2, gain: 1)
+track cb_sp   = orchestra("basses_spic", players: 2, room: 0.2, hall: 0.15, gain: -1)
 track tick    = orchestra("violins_spic", room: 0.2, hall: 0.25, pan: -0.45, gain: 2)
 
 // ---- brass ---------------------------------------------------------------------------------------
-track horns   = orchestra("horns", hall: 0.5, pan: -0.15, gain: -1)
-track bones   = orchestra("trombones", hall: 0.4, pan: 0.2, gain: -8)
-track tuba    = orchestra("tuba", hall: 0.35, gain: -1)
-track trumpet = orchestra("trumpets", hall: 0.45, pan: -0.05, gain: 2)
+track horns   = orchestra("horns", players: 3, hall: 0.5, pan: -0.15, gain: -1)
+track bones   = orchestra("trombones", players: 3, hall: 0.4, pan: 0.2, gain: -8)
+track tuba    = orchestra("tuba", players: 2, hall: 0.35, gain: -1)
+track trumpet = orchestra("trumpets", players: 2, hall: 0.45, pan: -0.05, gain: 2)
 
-// ---- percussion and the hybrid low end -------------------------------------------------------
-track perc  = orchestra("percussion", room: 0.3, hall: 0.25, taiko_gain: 2, bd_gain: 1, timp_gain: -2,
-                        snare_gain: -9, gong_gain: -1, crash_gain: -6)
-track rolls = orchestra("percussion", hall: 0.3)
+// ---- war drums: three players, a sub thump under each hit, glued and pushed -------------------
+track drums = orchestra("percussion", players: 3, thump: 0.55, arena: 0.45, hall: 0.15, gain: 2,
+                        taiko_gain: 2, bd_gain: 0, timp_gain: -1, gong_gain: -2, crash_gain: -7)
+  >> comp(threshold: -20, ratio: 3, attack: 0.02, release: 0.25, makeup: 2)
+  >> drive(amount: 0.18, tone: 0.55, mix: 0.5)
+  >> eq(mid: -2.5, mid_freq: 400, high: 3, high_freq: 3500)   // less box, more skin
+track hits  = orchestra("percussion", players: 2, thump: 0.7, arena: 0.5, hall: 0.3, gain: 2)
 track boom  = synth("impact", hall: 0.3, gain: 10)
 track sub   = synth("sub", width: 0, gain: -2)
 
 // ---- material ------------------------------------------------------------------------------------
-let prog  = "<Dm Dm Bb Bb Gm Gm A A>"
+let prog  = "<Dm Bb Gm A>".slow(2)              // each chord held two bars
 let roots = "<d2 d2 bb1 bb1 g1 g1 a1 a1>"
+let held_roots = "<d2 bb1 g1 a1>".slow(2)
 // the ostinato: only roots, fifths and octaves, so it fits minor and major chords alike;
 // accents in 3+3+2
 let figure = "[d3 d3 a3 d3 d3 a3 d4 a3 d3 d3 a3 d3 d3 a3 d4 a3]".vel("[1 .5 .55 .9 .5 .55 .85 .5]*2")
 fn follow(p) = cat(p, p, p.transpose(-4), p.transpose(-4), p.transpose(-7), p.transpose(-7), p.transpose(-5), p.transpose(-5))
 let bass8 = roots.struct("x*8").vel("[.95 .6 .7 .6 .9 .6 .7 .6]")
-// the theme (original): low horns first, then everything
+// the theme (original): low horns first, then everything; each phrase swells to its top note
 let theme = "<[d4 _ e4 f4] [a4 _ _ _] [bb4 _ a4 g4] [f4 _ _ e4] [d4 _ g4 a4] [bb4 _ a4 g4] [a4 _ _ _] [c#5 _ e5 _]>"
-let low_brass = "<[d3,a3] [d3,a3] [bb2,f3] [bb2,f3] [g2,d3] [g2,d3] [a2,e3] [a2,e3]>"
-let war  = "[taiko ~ taikoh taiko ~ taikoh taiko ~], [bd ~ ~ bd ~ ~ bd ~], [~ ~ ~ ~ snare ~ ~ ~]"
-let war2 = "[taiko taikoh taiko taiko taikoh taiko taiko taikoh], [bd ~ bd bd ~ bd bd ~], [~ ~ timp ~ snare ~ timph ~]"
+let shape = "<[.72 .72 .78 .84] .9 [.86 .8 .76 .72] [.7 .7 .7 .74] [.74 .74 .82 .88] [.94 .86 .8 .76] .82 [.9 .9 1 1]>"
+let low_brass = "<[d3,a3] [bb2,f3] [g2,d3] [a2,e3]>".slow(2)
+// war drums: a four-bar phrase in 3+3+2, ending in a fill
+let war = cat(
+  "[taiko ~ ~ taiko ~ ~ taiko ~], [bd ~ ~ ~ ~ ~ ~ ~], [~ ~ ~ ~ timp ~ ~ ~]",
+  "[taiko ~ ~ taiko ~ ~ taiko taikoh], [bd ~ ~ ~ ~ ~ bd ~]",
+  "[taiko ~ ~ taiko ~ ~ taiko ~], [bd ~ ~ ~ ~ ~ ~ ~], [~ ~ ~ ~ timp ~ ~ ~]",
+  "[taiko ~ taiko taiko [taikoh taikoh] [taiko taiko] [taiko taiko] [taiko taiko]], [bd ~ ~ ~ bd ~ bd ~], [~ ~ ~ ~ ~ ~ timph timp]")
+let war_accents = "[1 .55 .6 .92 .55 .6 .95 .7]"
+let heartbeat = "[taiko ~ ~ ~ ~ ~ taikoh ~]"
 
 // ---- arrangement ---------------------------------------------------------------------------------
 section dark 8 {
-  play celli "d2".legato(1).vel(0.35)
-  play rolls "timproll".slow(8).vel(0.4)
+  play celli "d2".slow(8).vel(0.35)
+  play hits "timproll".slow(8).vel(0.4)
   play tick "[d5 ~ d5 ~ d5 ~ d5 ~]".vel(0.3) from 4
-  play perc "taiko ~ ~ ~".vel(0.45) from 6
-  automate rolls.gain -22 -> -8
+  play drums "taiko ~ ~ ~".vel(0.5) from 6
+  automate hits.gain -16 -> -2
   automate celli.gain -6 -> 2
 }
 
 section pulse 16 {
   play vc_sp follow(figure).vel(0.45)
   play cb_sp bass8.vel(0.5) from 8
-  play celli roots.oct(1).legato(1).vel(0.4)
-  play violas prog.voicing("smooth").legato(1).vel(0.35) from 4
-  play horns theme.oct(-1).vel(0.55) from 8
+  play celli held_roots.oct(1).vel(0.4)
+  play violas prog.voicing("smooth").vel(0.35) from 4
+  play horns theme.oct(-1).vel(shape).velscale(0.75) from 8
   play tick "[d5 ~ d5 ~ d5 ~ d5 ~]".vel(0.3)
-  play perc "[taiko ~ ~ ~ ~ ~ taikoh ~]".vel(0.55)
+  play drums heartbeat.vel(0.6)
+  play drums heartbeat.vel(0.75) from 8
   automate vc_sp.gain -8 -> 0
 }
 
@@ -74,90 +88,60 @@ section rise 16 {
   play vc_sp follow(figure).vel(0.7)
   play vla_sp follow(figure.oct(1)).vel(0.6) from 8
   play cb_sp bass8.vel(0.7)
-  play violas prog.voicing("smooth").legato(1).vel(0.5)
-  play violins prog.voicing("smooth").legato(1).vel(0.45) from 8
-  play bones low_brass.legato(1).vel(0.5)
-  play tuba roots.legato(1).vel(0.5)
-  play horns theme.oct(-1).vel(0.8)
-  play perc war.vel(0.6) to 8
-  play perc war.vel(0.75) from 8
-  play perc "timp ~ ~ ~".vel(0.6)
+  play violas prog.voicing("smooth").vel(0.5)
+  play violins prog.voicing("smooth").vel(0.45) from 8
+  play bones low_brass.vel(0.55)
+  play tuba held_roots.vel(0.5)
+  play horns theme.oct(-1).vel(shape)
+  play drums war.vel(war_accents).velscale(0.75) to 8
+  play drums war.vel(war_accents) from 8 to 15
+  play drums "[taiko taikoh taiko taikoh taiko taiko taiko taiko]*2, [bd ~ bd ~ bd bd bd bd]".vel(0.95) from 15
+  play hits "swellshort".vel(1) at 15.3
   automate violins.gain -10 -> 0 from 8
-  automate bones.gain -8 -> 0
-}
-
-// The build: every two bars the harmony climbs a semitone (D minor ... G# minor, then A major),
-// the drums double in density every four bars, a cymbal swells to crest on the next downbeat,
-// and everything (reverb tails too) cuts to silence for the last beat.
-section build 16 {
-  for i in 0..8 {
-    play vc_sp figure.transpose(i).vel(0.6 + i * 0.05) from i * 2 to min(i * 2 + 2, 15.75)
-    play vla_sp figure.oct(1).transpose(i).vel(0.55 + i * 0.05) from i * 2 to min(i * 2 + 2, 15.75)
-    play cb_sp "d2*8".transpose(i).vel(0.6 + i * 0.05) from i * 2 to min(i * 2 + 2, 15.75)
-    play tuba "d2".transpose(i).legato(1).vel(0.5 + i * 0.06) from i * 2 to min(i * 2 + 2, 15.75)
-  }
-  play trem "<Dm Ebm Em Fm F#m Gm G#m A>".slow(2).voicing("smooth").legato(1).vel(0.8) to 15.75
-  play bones "<[d3,a3] [eb3,bb3] [e3,b3] [f3,c4] [f#3,c#4] [g3,d4] [g#3,d#4] [a3,e4]>".slow(2).legato(1).vel(0.8) from 4 to 15.75
-  play horns "<[d3,f3] [eb3,gb3] [e3,g3] [f3,ab3] [f#3,a3] [g3,bb3] [g#3,b3] [a3,c#4]>".slow(2).legato(1).vel(0.85) from 8 to 15.75
-  play trumpet "<~ ~ ~ ~ ~ ~ [a4,c#5] [a4,c#5]>".slow(2).legato(1).vel(0.9) to 15.75
-  play perc "[taiko ~ ~ taiko ~ ~ taiko ~]".vel(0.7) to 4
-  play perc "[taiko ~ taiko taiko ~ taiko taiko ~], [bd ~ ~ ~ bd ~ ~ ~]".vel(0.8) from 4 to 8
-  play perc "[taiko taiko taikoh taiko taiko taikoh taiko taikoh], bd*4, [~ snare]*2".vel(0.9) from 8 to 12
-  play perc "taiko*16, bd*8, snare*8".vel("[.8 .55 .65 .55]*4") from 12 to 15.75
-  play rolls "snareroll".slow(4).vel(0.9) from 12 to 15.75
-  play rolls "timproll".slow(6).vel(0.9) from 10 to 15.75
-  play rolls "bdroll".slow(5).vel(1) at 11.35 to 15.75
-  play perc "swell".vel(1) at 12.29   // crests just as everything cuts
-  automate trem.gain -16 -> -1
-  automate vc_sp.gain -2 -> 1
-  automate rolls.gain -18 -> -1 from 10
-  automate bones.gain -10 -> -1 from 4
-  automate horns.gain -6 -> 0 from 8
-  automate master.gain -60 from 15.75   // one beat of silence before the hit
+  automate bones.gain -6 -> 0
 }
 
 section hit 16 {
-  automate master.gain 0   // back from the silence
   play boom "0" at 0
   play boom "0" at 8
-  play perc "[gong, crash, bd, taiko] ~ ~ ~".vel(1) at 0
-  play perc "[crash, bd] ~ ~ ~".vel(0.9) at 8
-  play perc war2.vel(0.9) from 1
-  play sub roots.legato(1).vel(0.8)
+  play hits "[gong, crash, bd, taiko] ~ ~ ~".vel(1) at 0
+  play hits "[crash, bd, taiko] ~ ~ ~".vel(0.9) at 8
+  play drums war.vel(war_accents) from 1
+  play sub held_roots.vel(0.8)
   play vc_sp follow(figure).vel(0.95)
   play vla_sp follow(figure.oct(1)).vel(0.9)
   play cb_sp bass8.vel(0.95)
-  play bones low_brass.legato(1).vel(1)
-  play tuba roots.legato(1).vel(1)
-  play horns theme.oct(-1).vel(1)
-  play celli theme.oct(-1).legato(1).vel(0.9)
-  play violins theme.legato(1).vel(0.95)
-  play trumpet theme.vel(0.85)
-  play violas prog.voicing("smooth").legato(1).vel(0.8)
+  play bones low_brass.vel(1)
+  play tuba held_roots.vel(1)
+  play horns theme.oct(-1).vel(shape)
+  play celli theme.oct(-1).vel(shape)
+  play violins theme.vel(shape)
+  play trumpet theme.vel(shape).velscale(0.88)
+  play violas prog.voicing("smooth").vel(0.8)
 }
 
 section triumph 16 extends hit {
-  play trumpet theme.vel(1)
-  play trem prog.voicing("smooth").legato(1).vel(0.9)
-  play perc war2.vel(1) from 1 to 12
-  play perc "taiko*16, bd*8, [timp timph]*4".vel(1) from 12 to 15.75
-  play rolls "timproll".slow(4).vel(1) from 12 to 15.75
-  play perc "swellshort".vel(1) at 14.3
-  automate rolls.gain -14 -> 2 from 12
+  play trumpet theme.vel(shape)
+  play trem prog.voicing("smooth").vel(0.9)
+  play drums war.vel(war_accents) from 1 to 12
+  play drums "[taiko taikoh taiko taiko taikoh taiko taiko taikoh]*2, bd*8, [timp timph]*4".vel(1) from 12
+  play hits "timproll".slow(4).vel(1) from 12
+  play hits "swellshort".vel(1) at 15.3
+  automate hits.gain -12 -> 2 from 12
 }
 
 section aftermath 10 {
   play boom "0" at 0
-  play perc "[gong, bd, taiko] ~ ~ ~".vel(1) at 0
-  play bones "[d3,a3]".legato(1).vel(1) to 2
-  play tuba "d2".legato(1).vel(1) to 2
-  play horns "[d4,a3]".legato(1).vel(1) to 2
-  play celli "d2".legato(1).vel(0.4) from 2
+  play hits "[gong, bd, taiko] ~ ~ ~".vel(1) at 0
+  play bones "[d3,a3]".vel(1) to 2
+  play tuba "d2".vel(1) to 2
+  play horns "[d4,a3]".vel(1) to 2
+  play celli "d2".slow(8).vel(0.4) from 2
   play horns "<[d4 _ e4 f4] [a3 _ _ _] [d4 _ _ _] ~>".oct(-1).vel(0.45) from 3 to 7
   play tick "[d5 ~ d5 ~ d5 ~ d5 ~]".vel(0.25) from 2 to 8
-  play perc "[taiko, gong] ~ ~ ~".vel(0.7) at 8
-  automate celli.gain -4 -> -14 from 6
+  play hits "[taiko, gong] ~ ~ ~".vel(0.7) at 8
+  automate celli.gain 2 -> -10 from 6
   automate master.gain 0 -> -18 from 7
 }
 
-arrange dark, pulse, rise, build, hit, triumph, aftermath
+arrange dark, pulse, rise, hit, triumph, aftermath

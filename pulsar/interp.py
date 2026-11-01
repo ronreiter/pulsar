@@ -977,7 +977,7 @@ def b_piano(interp, name="grand", **kw):
     return Instrument("piano", str(name), "piano", {}, {}, False, octave, mix, base_gain=-4.0, sample=opts)
 
 
-ORCHESTRA_KEYS = {"release", "hold", "dynamics", "transpose"}
+ORCHESTRA_KEYS = {"release", "hold", "dynamics", "transpose", "players", "humanize", "thump"}
 
 
 def b_orchestra(interp, name, **kw):
@@ -989,7 +989,8 @@ def b_orchestra(interp, name, **kw):
         raise PulsarError(f"no orchestra instrument named {name!r}", hint=suggest(name, orchestra.names()) or
                           "pulsar presets lists them")
     kit = name == "percussion"
-    opts = {"name": name, "kit": kit, "release": None, "hold": 0.0, "dynamics": 1.0, "transpose": 0.0, "levels": {}}
+    opts = {"name": name, "kit": kit, "release": None, "hold": 0.0, "dynamics": 1.0, "transpose": 0.0, "levels": {},
+            "players": 1, "humanize": 4.0 if kit else 9.0, "thump": 0.0}
     mixer = {}
     for k, v in kw.items():
         if k in presets.MIXER_KEYS or k in interp.song.buses:
@@ -1002,6 +1003,10 @@ def b_orchestra(interp, name, **kw):
             extra = [f"{x}_gain" for x in orchestra.KIT] if kit else []
             raise PulsarError(f"orchestra() has no parameter {k!r}",
                               hint=suggest(k, list(ORCHESTRA_KEYS) + list(presets.MIXER_KEYS) + extra))
+    if not 1 <= opts["players"] <= 6:
+        raise PulsarError("orchestra players is 1-6: how many times the section is doubled")
+    if opts["thump"] and not kit:
+        raise PulsarError("thump (the low layer under big drums) is for orchestra(\"percussion\")")
     octave = int(mixer.pop("octave", orchestra.PITCHED[name][3] if not kit else 4))
     mix = {"gain": 0.0}
     mix.update(mixer)
@@ -1366,6 +1371,7 @@ PATTERN_METHODS = {
     "struct": lambda i, p, s: p.struct(to_pattern(s)),
     "mask": lambda i, p, s: p.mask(to_pattern(s)),
     "vel": _ctrl("vel"),
+    "velscale": lambda i, p, x: p.fmap(lambda d, x=float(num(x, None, "velscale")): {**d, "vel": max(0.0, min(1.0, d.get("vel", 0.8) * x))}),
     "legato": _ctrl("legato"),
     "slide": _ctrl("slide", "bool"),
     "accent": _ctrl("accent", "bool"),

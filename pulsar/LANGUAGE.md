@@ -162,6 +162,7 @@ Any string or pattern takes these (chain them):
 | `.voicing(mode)` | chord voicing: `smooth` (each chord picks the inversion nearest the middle of the track's octave, so progressions voice-lead), `open`, `drop2`, `spread` (root an octave down), `close` |
 | `.invert(n)` | rotate chord notes: 1 = first inversion, -1 = top note down |
 | `.vel(x)` | velocity 0-1: number or pattern `"1 0.6 0.8 0.6"` (default 0.8) |
+| `.velscale(x)` | multiply the velocities already set (`theme.vel(shape).velscale(0.7)`: same phrasing, softer) |
 | `.legato(x)` | note length as a fraction of its step (0.5 = staccato) |
 | `.slide("~ x ~ ~")` | mono synths: glide into marked notes without retriggering (303 slides) |
 | `.accent("x ~ ~ x")` | accented notes (louder, brighter filter envelope) |
@@ -256,9 +257,20 @@ section build 8 {
 }
 ```
 
-Settings: `release` (seconds after the note), `hold` (extra seconds), `dynamics` (how much
-velocity changes loudness beyond the layers), `transpose`; percussion also takes
-`<voice>_gain` in dB. Keep each instrument in its real range (`pulsar presets` shows the
+Settings:
+
+| setting | meaning |
+|---|---|
+| `players` | 1-6: double the section with other takes, a few cents of detune, 5-25 ms offsets and stereo spread (a chamber section becomes a big one; for drums, several drummers) |
+| `humanize` | ms of timing variation per note (default 9, percussion 4; 0 = exactly on the grid); velocity varies a few percent too |
+| `thump` | percussion: a synthesized sub thump and crack under the big drums (taiko, bass drum, timpani, gong), 0-1 |
+| `release`, `hold` | seconds of release after the note / extra seconds held |
+| `dynamics` | how much velocity changes loudness beyond the layers |
+| `transpose` | semitones |
+| `<voice>_gain` | percussion: dB per voice (`taiko_gain: 2`) |
+
+Samples are trimmed to their onsets (some recordings start up to 0.1 s early), and sustained
+notes overlap the next one slightly, like legato bowing. Keep each instrument in its real range (`pulsar presets` shows the
 octaves): notes far outside the recorded range are re-pitched and sound unnatural.
 
 ## Samples
