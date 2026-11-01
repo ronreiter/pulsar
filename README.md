@@ -31,6 +31,9 @@ takes the same ideas to a longer D-minor track. [`examples/driftwood.pulse`](exa
 deep house built on a pedal point: the lead repeats one note while the chords move underneath. [`examples/still_water.pulse`](examples/still_water.pulse)
 is relaxing spa music: a sampled grand piano and pads over a real dawn chorus and a trickling stream, pulled from
 free stock recordings with `ambience()`.
+[`examples/soft_rain.pulse`](examples/soft_rain.pulse) (an upright piano, cellos and a flute by a rainy window)
+and [`examples/low_tide.pulse`](examples/low_tide.pulse) (harp in a slow 12/8, grand piano and violins over
+ocean waves) are two more in the same spirit.
 [`examples/iron_meridian.pulse`](examples/iron_meridian.pulse) is epic orchestral trailer music on the
 sampled orchestra: a spiccato ostinato, a low horn theme and a build that climbs a semitone every two bars
 into one beat of silence before the hit.

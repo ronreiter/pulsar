@@ -949,7 +949,7 @@ def b_sampler(interp, path, **kw):
     return Instrument("sampler", p.name, "sampler", {}, {}, False, octave, mix, base_gain=-6.0, sample=opts)
 
 
-PIANO_KEYS = {"release", "pedal", "resonance", "hammer", "dynamics", "transpose"}
+PIANO_KEYS = {"release", "pedal", "resonance", "hammer", "dynamics", "transpose", "humanize"}
 
 
 def b_piano(interp, name="grand", **kw):
@@ -959,10 +959,10 @@ def b_piano(interp, name="grand", **kw):
     if str(name) not in piano.PIANOS:
         raise PulsarError(f"no piano named {name!r}", hint=f"use {' or '.join(repr(k) for k in piano.PIANOS)}")
     opts = {"name": str(name), "release": None, "pedal": 0.0, "resonance": 1.0, "hammer": 1.0, "dynamics": 1.0,
-            "transpose": 0.0}
+            "transpose": 0.0, "humanize": 6.0}
     mixer = {}
     for k, v in kw.items():
-        if k in presets.MIXER_KEYS or k in interp.song.buses:
+        if k in presets.MIXER_KEYS and k != "humanize" or k in interp.song.buses:
             mixer[k] = v
         elif k in PIANO_KEYS:
             opts[k] = float(num(v, None, k))
@@ -993,7 +993,7 @@ def b_orchestra(interp, name, **kw):
             "players": 1, "humanize": 4.0 if kit else 9.0, "thump": 0.0}
     mixer = {}
     for k, v in kw.items():
-        if k in presets.MIXER_KEYS or k in interp.song.buses:
+        if k in presets.MIXER_KEYS and k != "humanize" or k in interp.song.buses:
             mixer[k] = v
         elif kit and k.endswith("_gain") and k[:-5] in orchestra.KIT:
             opts["levels"][k[:-5]] = float(num(v, None, k))

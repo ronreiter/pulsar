@@ -1,0 +1,85 @@
+// Soft Rain: relaxing music for a rainy afternoon. F major, 62 BPM, ~4 minutes.
+// An upright piano played softly and close, low cellos breathing underneath, a flute that takes
+// the melody's answer in the middle, and real rain on leaves all the way through.
+tempo 62
+key "F major"
+seed 11
+loudness -17
+
+bus room = reverb(decay: 2.2, size: 0.7, damp: 0.55, predelay: 0.02)
+bus hall = reverb(decay: 5, size: 0.92, damp: 0.5, predelay: 0.04, lowcut: 180)
+
+// ---- the rain -------------------------------------------------------------------------------------
+track rain = ambience("rain on leaves", id: "File:Rain on leaves (Gravity Sound).wav", fade: 10, width: 1.3, gain: -2)
+  >> hp(220) >> eq(high: -2.5, high_freq: 6000)
+
+// ---- piano: the upright, soft and close ------------------------------------------------------------
+track keys   = piano("upright", pedal: 0.5, room: 0.35, hall: 0.25, gain: -1) >> hp(70) >> eq(low: -2, high: -1.5)
+track melody = piano("upright", pedal: 0.7, room: 0.3, hall: 0.35, pan: 0.06, gain: 4)
+
+// ---- strings, flute, air ---------------------------------------------------------------------------
+track celli = orchestra("celli", players: 2, hall: 0.45, pan: 0.2, gain: 5, release: 1.2)
+track flute = orchestra("flute", hall: 0.55, pan: -0.15, gain: -13, release: 0.8)
+track pad   = synth("pad", attack: 4, release: 6, cutoff: 0.18, width: 1.6, hall: 0.6, gain: -10, octave: 3)
+  >> hp(240) >> chorus(0.3)
+
+// ---- material -------------------------------------------------------------------------------------
+let prog_home = "<Fmaj9 Am7 Bbmaj9 Csus4>"
+let prog_away = "<Dm9 Bbmaj9 Gm9 Csus4>"
+let home_bass = "<f2 a2 bb1 c2>"
+let away_bass = "<d2 bb1 g1 c2>"
+// right hand: the chord broken in 3+3+2, rising then turning back
+fn ripple(prog) = prog.voicing("smooth").arp("converge", 1/8, 1).vel("[.62 .45 .5 .58 .45 .5 .55 .44]")
+let theme = "<[f4 _ g4 a4 _ _ c5 _] [e5 _ _ _ d5 _ c5 _] [d5 _ _ c5 _ _ a4 _] [g4 _ _ _ ~ ~ ~ ~] [f4 _ g4 a4 _ _ c5 _] [e5 _ _ _ g5 _ e5 _] [f5 _ _ e5 _ _ d5 _] [c5 _ _ _ _ _ ~ ~]>"
+let theme_dyn = "<[.6 .6 .64 .68 .68 .68 .74 .74] .72 [.7 .7 .7 .64 .64 .64 .6 .6] .56 [.62 .62 .66 .7 .7 .7 .76 .76] [.78 .78 .78 .78 .84 .84 .76 .76] [.8 .8 .8 .72 .72 .72 .66 .66] .6>"
+let answer = "<[a5 _ _ _ f5 _ e5 _] [d5 _ _ _ _ _ ~ ~] [bb5 _ _ a5 _ _ g5 _] [f5 _ _ _ _ _ ~ ~] [a5 _ _ _ c6 _ _ _] [d6 _ _ c6 _ _ a5 _] [g5 _ _ _ f5 _ _ _] [g5 _ _ _ _ _ ~ ~]>"
+
+// ---- arrangement ----------------------------------------------------------------------------------
+section window 8 {
+  play rain "x"
+  play keys prog_home.voicing("smooth").vel(0.42).legato(0.98) from 2 to 6
+  play keys ripple(prog_home).velscale(0.85) from 4
+  play keys home_bass.vel(0.45) from 4
+}
+
+section first 16 {
+  play rain "x"
+  play keys ripple(prog_home)
+  play keys home_bass.vel(0.48)
+  play celli home_bass.oct(1).vel(0.3) from 4
+  play melody theme.vel(theme_dyn) from 8
+  automate rain.gain -4 -> -7 from 8
+}
+
+section away 16 {
+  play rain "x"
+  play keys ripple(prog_away).velscale(0.92)
+  play keys away_bass.vel(0.46)
+  play celli away_bass.oct(1).vel(0.34)
+  play pad prog_away.voicing("smooth")
+  play flute answer.vel(0.45)
+  automate pad.cutoff 0.14 -> 0.22
+}
+
+section home 16 {
+  play rain "x"
+  play keys ripple(prog_home)
+  play keys home_bass.vel(0.5)
+  play celli home_bass.oct(1).vel(0.36)
+  play pad prog_home.voicing("smooth") to 8
+  play melody theme.vel(theme_dyn)
+  play flute "<~ ~ ~ ~ [~ ~ ~ ~ c6 _ _ _] [a5 _ _ _ _ _ ~ ~] ~ ~>".vel(0.4) from 8
+  automate rain.gain -7 -> -4 from 8
+}
+
+section dusk 10 {
+  play rain "x"
+  play keys ripple(prog_home).velscale(0.8) to 6
+  play keys home_bass.vel(0.42) to 6
+  play celli "f2".slow(6).vel(0.3) to 6
+  play melody "[f4 _ g4 a4 _ _ c5 _] [a4 _ _ _ _ _ _ _]".slow(2).vel(0.5) from 6 to 8
+  play keys "[f2,c3,a3,e4]".vel(0.4).slow(4) from 7
+  automate master.gain 0 -> -22 from 7
+}
+
+arrange window, first, away, home, dusk

@@ -17,7 +17,7 @@ from fractions import Fraction as F
 
 from . import theory
 from .errors import PulsarError
-from .pattern import Ctx, Ev, Pattern, resolve
+from .pattern import Ctx, Ev, Pattern, resolve, to_frac
 
 BEATS = 4  # beats per bar: Pulsar bars are 4/4
 FLAGS = ("slide", "accent")
@@ -141,8 +141,12 @@ def read_band(song, section: str, track: str, at: float | None = None) -> dict:
         # exactly as the compiler does.
         swung = evs
         sw = tr.mixer.get("swing", song.swing if sec.swing is None else sec.swing)
-        if play.end is not None and sw:
-            swung = play.pattern.swing(sw, F(1, 8)).onsets(0, end - play.start, ctx)
+        hum = tr.mixer.get("humanize", 0)
+        if play.end is not None and (sw or hum):
+            pat = play.pattern.swing(sw, F(1, 8)) if sw else play.pattern
+            if hum:
+                pat = pat.humanize(to_frac(hum / 1000.0 / song.bar_seconds), 0.06)
+            swung = pat.onsets(0, end - play.start, ctx)
             if len(swung) != len(evs):
                 swung = evs
         for ev, sev in zip(evs, swung):

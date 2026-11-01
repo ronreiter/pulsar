@@ -35,7 +35,8 @@ LICENSES = ("cc0", "open", "by-sa")
 BAD_WORDS = ("speech", "spoken", "lecture", "interview", "inaugural", "pronunciation", "music", "song", "songs",
              "rag", "opera", "symphony", "voice", "audiobook", "podcast", "radio", "librivox", "poem", "anthem",
              "hymn", "composition", "composer", "quartet", "quartette", "orchestra", "band", "singer", "lyrics",
-             "phonograph", "cylinder", "78 rpm", "gramophone")
+             "phonograph", "cylinder", "78 rpm", "gramophone", "remarks", "president", "ceremony", "signing",
+             "address", "debate", "press")
 GOOD_WORDS = ("field recording", "nature", "ambience", "ambient", "soundscape", "bird", "water", "stream", "river",
               "rain", "wind", "forest", "ocean", "sea", "waves", "creek", "brook", "fire", "insects", "night")
 

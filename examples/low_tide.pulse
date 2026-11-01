@@ -1,0 +1,85 @@
+// Low Tide: relaxing music by the sea. A major, 56 BPM in a slow 12/8 sway, ~4 minutes.
+// Harp arpeggios rolling in triplets like water, a grand piano melody, violins that take the
+// answer, low cellos, and real waves lapping a tropical beach under all of it. The borrowed
+// D minor 6 at the end of each phrase is the sigh; the D# in the melody is the light on the water.
+tempo 56
+key "A major"
+seed 23
+loudness -17
+master = eq(high: 2.5, high_freq: 6000)
+
+bus hall = reverb(decay: 5.5, size: 0.95, damp: 0.45, predelay: 0.045, lowcut: 160)
+bus room = reverb(decay: 1.8, size: 0.6, damp: 0.5, predelay: 0.015)
+
+// ---- the sea --------------------------------------------------------------------------------------
+track waves = ambience("ocean waves", id: "File:Ocean Waves on a Tropical Beach.ogg", fade: 12, width: 1.4, gain: -3)
+  >> hp(90) >> eq(low: -2, low_freq: 160, high: -2, high_freq: 7000)
+
+// ---- harp and piano -------------------------------------------------------------------------------
+track harp   = orchestra("harp", room: 0.2, hall: 0.5, pan: -0.25, gain: -8, humanize: 7)
+track melody = piano("grand", pedal: 0.6, room: 0.2, hall: 0.45, pan: 0.1, gain: 6) >> hp(90)
+track keys   = piano("grand", pedal: 1, room: 0.2, hall: 0.4, pan: 0.05, gain: 4) >> hp(70) >> eq(low: -2)
+
+// ---- strings ----------------------------------------------------------------------------------------
+track violins = orchestra("violins", players: 3, hall: 0.6, pan: -0.3, gain: 8, release: 1.4)
+track violas  = orchestra("violas", players: 2, hall: 0.55, pan: 0.25, gain: 7, release: 1.4)
+track celli   = orchestra("celli", players: 2, hall: 0.45, pan: 0.15, gain: 4, release: 1.6)
+
+// ---- material ---------------------------------------------------------------------------------------
+let prog_a = "<Amaj9 C#m7 Dmaj9 Dm6>"
+let prog_b = "<F#m9 Dmaj9 Amaj7 Esus4>"
+let bass_a = "<a1 c#2 d2 d2>"
+let bass_b = "<f#1 d2 a1 e2>"
+// harp: two octaves up and back down in triplet eighths -- one wave per bar
+fn flow(prog) = prog.voicing("smooth").arp("updown", 1/12, 2).vel("[.7 .5 .55 .62 .5 .55]*2")
+// melody on a six-step grid (dotted-quarter feel)
+let theme = "<[e5 _ _ c#5 _ b4] [g#4 _ _ _ _ _] [a4 _ b4 c#5 _ e5] [f5 _ _ e5 _ _] [e5 _ _ c#5 _ b4] [e5 _ _ g#5 _ _] [f#5 _ _ d#5 _ e5] [d5 _ _ _ _ _]>"
+let theme_dyn = "<[.62 .62 .62 .58 .58 .55] .5 [.58 .58 .62 .66 .66 .72] [.74 .74 .74 .66 .66 .66] [.64 .64 .64 .6 .6 .58] [.66 .66 .66 .76 .76 .76] [.78 .78 .78 .7 .7 .66] .56>"
+let answer = "<[c#5 _ _ _ _ _] [a4 _ _ f#4 _ _] [g#4 _ _ a4 _ b4] [b4 _ _ _ _ _] [c#5 _ _ e5 _ _] [f#5 _ _ e5 _ d5] [c#5 _ _ b4 _ a4] [b4 _ _ _ _ _]>"
+
+// ---- arrangement ------------------------------------------------------------------------------------
+section shore 8 {
+  play waves "x"
+  play harp flow(prog_a).velscale(0.65) from 2
+  play celli bass_a.oct(1).vel(0.3) from 4
+}
+
+section first 16 {
+  play waves "x"
+  play harp flow(prog_a)
+  play celli bass_a.oct(1).vel(0.34)
+  play keys bass_a.oct(1).vel(0.4)
+  play melody theme.vel(theme_dyn) from 4
+  automate waves.gain -3 -> -6 from 4
+}
+
+section swell 16 {
+  play waves "x"
+  play harp flow(prog_b)
+  play celli bass_b.oct(1).vel(0.4)
+  play violas prog_b.voicing("smooth").vel(0.3)
+  play violins answer.vel(0.42)
+  play keys prog_b.voicing("smooth").vel(0.32) from 8
+  automate violins.gain -10 -> -4 to 8
+}
+
+section homeward 16 {
+  play waves "x"
+  play harp flow(prog_a)
+  play celli bass_a.oct(1).vel(0.36)
+  play violas prog_a.voicing("smooth").vel(0.28) to 8
+  play violins "<[e5 _ _ _ _ _] [e5 _ _ _ _ _] [f#5 _ _ _ _ _] [f5 _ _ _ _ _]>".vel(0.3) from 8
+  play melody theme.vel(theme_dyn)
+  automate waves.gain -6 -> -3 from 8
+}
+
+section ebb 10 {
+  play waves "x"
+  play harp flow(prog_a).velscale(0.75) to 6
+  play celli "a1".slow(6).vel(0.3) to 6
+  play melody "[e5 _ _ c#5 _ b4] [a4 _ _ _ _ _]".slow(2).vel(0.5) from 4 to 6
+  play harp "Amaj9".arp("up", 1/12, 2).vel(0.5) from 6 to 7
+  automate master.gain 0 -> -22 from 6
+}
+
+arrange shore, first, swell, homeward, ebb

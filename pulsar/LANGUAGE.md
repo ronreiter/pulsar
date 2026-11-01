@@ -222,6 +222,7 @@ section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8)  play melody "<[a5 _ 
 | `release` | damper time in seconds (default: the set's own, ~1 s for the grand) |
 | `dynamics` | 0-2: how much velocity changes loudness on top of the velocity layers (1 = as mapped) |
 | `resonance`, `hammer` | 0-1+: level of the key-up string resonance and of the hammer/damper noise |
+| `humanize` | ms of timing variation per note (default 6; 0 = exactly on the grid); velocity varies a little too |
 | `transpose` | semitones |
 
 Velocity (`.vel()`) picks the layer, so soft notes are darker and loud ones brighter, as on
