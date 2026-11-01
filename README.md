@@ -31,6 +31,9 @@ takes the same ideas to a longer D-minor track. [`examples/driftwood.pulse`](exa
 deep house built on a pedal point: the lead repeats one note while the chords move underneath. [`examples/still_water.pulse`](examples/still_water.pulse)
 is relaxing spa music: a sampled grand piano and pads over a real dawn chorus and a trickling stream, pulled from
 free stock recordings with `ambience()`.
+[`examples/iron_meridian.pulse`](examples/iron_meridian.pulse) is epic orchestral trailer music on the
+sampled orchestra: a spiccato ostinato, a low horn theme and a build that climbs a semitone every two bars
+into one beat of silence before the hit.
 
 ```
 tempo 122
@@ -80,6 +83,9 @@ by note at 96 kHz and placed sample-exactly:
 - 14 synthesized drum voices in 5 kits, a sampler (pitch / slice / gate / fit);
 - neural singing and speaking voices (Kokoro-82M, 54 voices, local): lyrics sung one word
   per note, re-pitched with the WORLD vocoder so formants stay natural, optionally doubled;
+- a sampled orchestra (VSCO-2 CE, CC0): string sections with spiccato, tremolo and pizzicato, brass,
+  woodwinds and big percussion (taiko, timpani, gong, cymbal swells), velocity-layered with
+  alternating takes;
 - sampled acoustic pianos: a Yamaha C5 grand with 16 velocity layers and a Kawai upright, with
   dampers, key-up string resonance and hammer noise;
 - free stock ambience -- birds, water, rain, waves -- searched in openly licensed archives

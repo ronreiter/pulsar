@@ -136,9 +136,20 @@ def read_band(song, section: str, track: str, at: float | None = None) -> dict:
         if end <= play.start:
             continue
         ctx = play_ctx(song, sec, idx, pi, tr)
-        for ev in play.pattern.onsets(0, end - play.start, ctx):
+        evs = play.pattern.onsets(0, end - play.start, ctx)
+        # Where the song will actually start each note (after swing), for cutting notes at `to`
+        # exactly as the compiler does.
+        swung = evs
+        sw = tr.mixer.get("swing", song.swing if sec.swing is None else sec.swing)
+        if play.end is not None and sw:
+            swung = play.pattern.swing(sw, F(1, 8)).onsets(0, end - play.start, ctx)
+            if len(swung) != len(evs):
+                swung = evs
+        for ev, sev in zip(evs, swung):
             b = play.start + ev.b
             length = (ev.e - ev.b) * F(ev.v.get("legato", 1)).limit_denominator(1000)
+            if play.end is not None:
+                length = min(length, end - play.start - sev.b)
             vel = round(float(ev.v.get("vel", 0.8)), 3)
             flags = [f for f in FLAGS if ev.v.get(f)]
             base = {"beat": _fmt(b * BEATS), "len": _fmt(length * BEATS), "vel": vel, "flags": flags}
@@ -151,7 +162,9 @@ def read_band(song, section: str, track: str, at: float | None = None) -> dict:
                     notes.append(dict(base, note=note_name(m, flats), pitch=float(m)))
             else:
                 notes.append(dict(base, note="x", pitch=None))
-    kind = {"drums": "drums"}.get(tr.inst.kind, "notes" if tr.inst.kind in ("synth", "piano", "voice") else "hits")
+    kind = {"drums": "drums"}.get(tr.inst.kind, "notes" if tr.inst.kind in ("synth", "piano", "voice", "orchestra") else "hits")
+    if tr.inst.kind == "orchestra" and tr.inst.sample.get("kit"):
+        kind = "drums"
     if kind == "hits" and any(n["pitch"] is not None for n in notes):
         kind = "notes"
     return {"ok": True, "section": sec.name, "track": track, "bars": float(sec.bars), "beats_per_bar": BEATS,

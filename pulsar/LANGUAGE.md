@@ -229,6 +229,38 @@ the first render (`pulsar check` stays offline). The grand is CC BY: renders tha
 it in `<output>.credits.txt`. Real pianos are stretch-tuned (the bass sits a few cents flat),
 which blends with synths at A440 without beating noticeably.
 
+## Orchestra (sampled)
+
+`orchestra("violins")` is a real orchestral section: the Versilian Studios Chamber Orchestra 2
+Community Edition (CC0 -- no attribution needed), recorded at several dynamics with alternate
+takes. Velocity picks the dynamic layer (soft notes are darker, not just quieter), repeated
+notes alternate takes, and a held note longer than its recording loops its steady middle with
+a crossfade. Each instrument downloads once (10-75 MB), on the first render that uses it.
+
+| family | instruments (`_spic` spiccato, `_trem` tremolo, `_pizz` pizzicato, `_stac` staccato) |
+|---|---|
+| strings | `violins` `violins_spic` `violins_trem` `violins_pizz` `violas` `violas_spic` `violas_trem` `celli` `celli_spic` `celli_trem` `celli_pizz` `basses` `basses_spic` `basses_pizz` `harp` |
+| brass | `horns` `horns_stac` `trombones` `trombones_stac` `tuba` `tuba_stac` `trumpets` `trumpets_stac` |
+| woodwinds | `flute` `oboe` `clarinet` `bassoon` |
+| percussion | `orchestra("percussion")`, a kit: `bd` `bdm` (muted) `taiko` `taikoh` (hand) `taikos` (sticks) `tenor` `timp` `timph` `gong` `crash` `sus` `snare` `anvil`; rolls `bdroll` `timproll` `snareroll` and cymbal swells `swell` `swellshort` |
+
+```
+track ostinato = orchestra("celli_spic")
+track brass    = orchestra("trombones", gain: -6)
+track perc     = orchestra("percussion", taiko_gain: 2, snare_gain: -8)
+section build 8 {
+  play ostinato "[d3 d3 a3 d3 d3 a3 d4 a3]*2".vel("[1 .5 .5 .9 .5 .5 .85 .5]*2")
+  play perc "[taiko ~ taikoh taiko ~ taikoh taiko ~], [bd ~ ~ bd ~ ~ bd ~]"
+  play perc "swell".vel(1) at 4.5          // a cymbal crescendo (crests ~7 s in)
+  play perc "timproll".slow(4) from 4      // rolls stop when their note ends
+}
+```
+
+Settings: `release` (seconds after the note), `hold` (extra seconds), `dynamics` (how much
+velocity changes loudness beyond the layers), `transpose`; percussion also takes
+`<voice>_gain` in dB. Keep each instrument in its real range (`pulsar presets` shows the
+octaves): notes far outside the recorded range are re-pitched and sound unnatural.
+
 ## Samples
 
 `sampler("path.wav", ...)` plays an audio file (WAV, AIFF, FLAC, OGG; paths are relative

@@ -335,22 +335,40 @@ class Renderer:
     # -- sampled piano -----------------------------------------------------------------
 
     def piano_set(self, tr: Track):
-        """(regions, level) for a piano track: its SFZ map, and the gain that puts a mezzo-forte
-        middle C at the reference level (so dynamics between notes stay as recorded)."""
-        from . import piano
-        name = tr.inst.sample["name"]
+        """(regions, level) for a sampled instrument: its regions, and the gain that puts a
+        mezzo-forte note in the middle of its range at the reference level (so dynamics between
+        notes stay as recorded). An orchestral percussion kit gives {voice: (regions, level)}."""
+        from . import orchestra, piano
+        opt = tr.inst.sample
+        key = (tr.inst.kind, opt["name"], opt.get("release"))
         cache = self.__dict__.setdefault("_pianos", {})
-        if name not in cache:
-            regions = piano.parse_sfz(piano.install(name, self.log))
-            ref = piano.find(regions, 60, 96)
-            x = self.piano_wave(ref.path)
-            win = int(0.2 * OUT_SR)
-            sq = (x[:, : 4 * OUT_SR].astype(np.float64) ** 2).mean(axis=0)
-            c = np.concatenate([[0], np.cumsum(sq)])
-            rms = math.sqrt(max(float(((c[win:] - c[:-win]) / win).max()), 1e-12))
-            amp = 1 + ref.veltrack * ((96 / 127) ** 2 - 1)
-            cache[name] = (regions, 10 ** (REF_MOMENTARY_DB / 20) / (rms * amp * 10 ** (ref.volume / 20)))
-        return cache[name]
+        if key in cache:
+            return cache[key]
+        if tr.inst.kind == "piano":
+            regions = piano.parse_sfz(piano.install(opt["name"], self.log))
+            cache[key] = (regions, self._sample_level(piano.find(regions, 60, 96)))
+        elif opt.get("kit"):
+            kit = orchestra.kit_regions(orchestra.install("percussion", self.log))
+            # each voice calibrated on its loudest layer, so a fff hit sits at the reference level
+            cache[key] = {v: (rs, self._sample_level(max(rs, key=lambda r: r.hivel), loud=True)) for v, rs in kit.items()}
+        else:
+            regions = orchestra.regions(opt["name"], orchestra.install(opt["name"], self.log), opt.get("release"))
+            if not regions:
+                raise PulsarError(f"no samples found for orchestra({opt['name']!r})")
+            centers = sorted({r.center for r in regions})
+            cache[key] = (regions, self._sample_level(piano.find(regions, centers[len(centers) // 2], 96)))
+        return cache[key]
+
+    def _sample_level(self, ref, loud=False) -> float:
+        x = self.piano_wave(ref.path)
+        win = int(0.2 * OUT_SR)
+        sq = (x[:, : 4 * OUT_SR].astype(np.float64) ** 2).mean(axis=0)
+        c = np.concatenate([[0], np.cumsum(sq)])
+        mom = (c[win:] - c[:-win]) / win if len(sq) > win else np.array([sq.mean()])
+        rms = math.sqrt(max(float(mom.max()), 1e-12))
+        v = ref.hivel if loud else 96
+        amp = 1 + ref.veltrack * ((v / 127) ** 2 - 1)
+        return 10 ** (REF_MOMENTARY_DB / 20) / (rms * amp * 10 ** (ref.volume / 20))
 
     def piano_wave(self, path) -> np.ndarray:
         cache = self.__dict__.setdefault("_piano_waves", {})
@@ -370,7 +388,29 @@ class Renderer:
         cache = self.__dict__.setdefault("_piano_notes", {})
         x = self.piano_wave(r.path)
         sr = self.__dict__["_piano_waves"][r.path][1]
-        if r.loop and x.shape[1] / sr < need:
+        if r.loop == "auto" and x.shape[1] / sr < need and x.shape[1] > sr:
+            # A sustain that runs out: loop its steady middle with a crossfade at the seam.
+            lc = self.__dict__.setdefault("_auto_loops", {})
+            if r.path not in lc:
+                n = x.shape[1]
+                # End the loop before the recording's own release: the last moment the level is
+                # still within 4 dB of the sustain's median.
+                w = int(0.1 * sr)
+                env = np.sqrt((x[:, : n // w * w].mean(axis=0).reshape(-1, w).astype(np.float64) ** 2).mean(axis=1))
+                db = 20 * np.log10(env + 1e-9)
+                body_db = np.median(db[len(db) // 3: len(db) * 3 // 4])
+                ok = np.nonzero(db >= body_db - 4)[0]
+                b = int((ok[-1] + 1) * w) if len(ok) else n - int(0.15 * sr)
+                a = min(int(n * 0.35), b // 2)
+                xf = min(int(0.3 * sr), (b - a) // 3)
+                t = np.linspace(0, np.pi / 2, xf, dtype=np.float32)
+                body = x[:, a:b - xf].copy()
+                body[:, :xf] = x[:, a:a + xf] * np.sin(t) + x[:, b - xf:b] * np.cos(t)
+                lc[r.path] = (x[:, :b - xf], body)
+            head, body = lc[r.path]
+            reps = int((need * sr - head.shape[1]) / max(body.shape[1], 1)) + 1
+            x = np.concatenate([head] + [body] * reps, axis=1)
+        elif isinstance(r.loop, tuple) and x.shape[1] / sr < need:
             a, b = r.loop
             reps = int((need * sr - x.shape[1]) / max(b - a, 1)) + 1
             x = np.concatenate([x[:, :b]] + [x[:, a:b]] * reps, axis=1)
@@ -384,28 +424,49 @@ class Renderer:
         return cache[k]
 
     def render_piano(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
-        """Each note plays the recorded key nearest to it at its velocity layer; when the key comes up the
-        damper stops the string over the set's release time, and the set's release recordings (string
-        resonance, hammer and damper noise) sound, quieter the longer the key was held."""
+        """Sampled instruments (pianos, the orchestra). Each note plays the recorded key nearest to it at
+        its velocity layer, alternating takes where there are several; when the note ends the sound
+        stops over the release time (a piano's dampers, a bow lifting), and a piano's key-up
+        recordings (string resonance, hammer and damper noise) sound, quieter the longer it was held."""
         from . import piano
         opt = tr.inst.sample
-        regions, level = self.piano_set(tr)
+        bank = self.piano_set(tr)
+        kit = opt.get("kit")
         out = np.zeros((2, n_out), np.float32)
         for i, nt in enumerate(notes):
-            if i % part[1] != part[0] or nt.pitch is None:
+            if i % part[1] != part[0]:
                 continue
-            key = nt.pitch + opt["transpose"]
+            voice = None
+            if kit:
+                from .orchestra import ALIASES
+                voice = ALIASES.get(nt.drum, nt.drum)
+                if voice not in bank:
+                    from .errors import suggest
+                    raise PulsarError(f"orchestra percussion has no voice {voice!r}",
+                                      hint=suggest(voice, list(bank)) or "voices: " + ", ".join(bank))
+                regions, level = bank[voice]
+                key = 60
+                level *= 10 ** (opt["levels"].get(voice, 0.0) / 20)
+            else:
+                if nt.pitch is None:
+                    continue
+                regions, level = bank
+                key = nt.pitch + opt["transpose"]
             vel = int(min(127, max(1, round(nt.vel * 127))))
-            r = piano.find(regions, int(round(key)), vel)
+            r = piano.find(regions, int(round(key)), vel, rr=i)
             if r is None:
                 continue
-            hold = nt.dur + opt["pedal"]
-            rel = opt["release"] if opt["release"] is not None else r.release
+            hold = nt.dur + opt.get("pedal", 0.0) + opt.get("hold", 0.0)
+            rel = opt["release"] if opt.get("release") is not None else r.release
+            if kit:
+                rel = 0.12
             x = self.piano_note(r, key, hold + rel)
             amp = (1 + r.veltrack * opt["dynamics"] * ((vel / 127) ** 2 - 1)) * 10 ** (r.volume / 20)
             stop = int(hold * OUT_SR)
-            if stop < x.shape[1]:
-                # Dampers: an exponential fade reaching -60 dB over the release time.
+            if kit and not voice.endswith("roll"):
+                y = x  # percussion rings out (rolls stop with their note, so a roll can cut dead)
+            elif stop < x.shape[1]:
+                # Release: an exponential fade reaching -60 dB over the release time.
                 n_rel = max(16, int(rel * OUT_SR))
                 end = min(x.shape[1], stop + n_rel)
                 y = x[:, :end].copy()
@@ -416,6 +477,8 @@ class Renderer:
             e0 = min(n_out, s0 + y.shape[1])
             if e0 > s0:
                 out[:, s0:e0] += y[:, :e0 - s0] * (amp * level)
+            if tr.inst.kind != "piano":
+                continue
             # Key-up sounds.
             t_off = s0 + stop
             for rr in piano.releases(regions, int(round(key)), vel):
@@ -696,7 +759,7 @@ class Renderer:
             return self.render_voice(tr, notes, n, part)[:, :n]
         if tr.inst.kind == "ambience":
             return self.render_ambience(tr, notes, n, part)
-        if tr.inst.kind == "piano":
+        if tr.inst.kind in ("piano", "orchestra"):
             return self.render_piano(tr, notes, n, part)
         return self.render_synth(tr, notes, n, part)[:, :n]
 
@@ -722,7 +785,7 @@ class Renderer:
             return len(notes) * 0.02
         if tr.inst.kind == "ambience":
             return 0.0
-        if tr.inst.kind == "piano":
+        if tr.inst.kind in ("piano", "orchestra"):
             return len(notes) * 0.03
         if tr.inst.kind == "voice":
             return len(notes) * 0.4
@@ -758,6 +821,15 @@ class Renderer:
             users = [n for n in active if self.song.tracks[n].inst.kind == "piano"
                      and self.song.tracks[n].inst.sample["name"] == kind_name]
             credits.append(dict(_piano.credit(kind_name), track=", ".join(users)))
+        if any(self.song.tracks[n].inst.kind == "orchestra" for n in active):
+            from . import orchestra as _orch
+            users = [t for t in active if self.song.tracks[t].inst.kind == "orchestra"]
+            for t in users:  # fetch each instrument here, once, before any worker needs it
+                o = self.song.tracks[t].inst.sample
+                _orch.install("percussion" if o.get("kit") else o["name"], self.log)
+            credits.append(dict(_orch.CREDIT, track=", ".join(users),
+                                credit=f'"{_orch.CREDIT["title"]}" by {_orch.CREDIT["creator"]} -- CC0 (no '
+                                       f'attribution required) -- {_orch.CREDIT["url"]}'))
         info["credits"] = credits
         for name, (audio, secs) in self._track_results(active, jobs):
             tr = self.song.tracks[name]

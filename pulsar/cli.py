@@ -96,7 +96,7 @@ def score_json(path: str, source: str | None = None) -> dict:
     tracks = []
     for name, tr in song.tracks.items():
         inst = tr.inst
-        if inst.kind == "drums":
+        if inst.kind == "drums" or (inst.kind == "orchestra" and inst.sample.get("kit")):
             lane = "drums"
         elif inst.kind in ("sampler", "ambience"):
             lane = "sampler"
@@ -263,6 +263,14 @@ def cmd_presets(args):
     print("\ndrum kits  (drums(\"name\", bd_decay: 0.5, hh_gain: -3, ...))")
     for name, k in presets.KITS.items():
         print(f"  {name:12} {k['desc']}")
+    from . import orchestra, piano
+    print("\nsampled pianos  (piano(\"name\", pedal: 0.4))")
+    for name, info in piano.PIANOS.items():
+        print(f"  {name:12} {info['title']} ({info['license']}, {info['size']} once)")
+    print("\nsampled orchestra  (orchestra(\"name\", gain: -2); VSCO-2 CE, CC0, downloads per instrument)")
+    for name, (_, _, _, octv, desc) in orchestra.PITCHED.items():
+        print(f"  {name:15} oct {octv}  {desc}")
+    print("  percussion      kit: " + " ".join(orchestra.KIT) + "  (voice_gain: dB)")
     return 0
 
 

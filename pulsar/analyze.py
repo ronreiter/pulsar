@@ -56,7 +56,7 @@ def describe_score(score) -> str:
             pitched = [n.pitch for n in notes if n.pitch is not None]
             rng = (f" range {theory.midi_name(int(min(pitched)))}-{theory.midi_name(int(max(pitched)))}"
                    if pitched else " (as recorded)")
-        elif notes and tr.inst.kind != "drums":
+        elif notes and tr.inst.kind != "drums" and all(n.pitch is not None for n in notes):
             lo = min(n.pitch for n in notes)
             hi = max(n.pitch for n in notes)
             rng = f" range {theory.midi_name(int(lo))}-{theory.midi_name(int(hi))}"
@@ -91,7 +91,7 @@ def score_warnings(score) -> list[str]:
                                f"above its speaking range; it will sound thin and synthetic. Lower it "
                                f"(octave: {max(1, int(med) // 12 - 2)}) or use .oct(-1)")
             continue
-        if tr.inst.kind in ("drums", "sampler", "ambience"):
+        if tr.inst.kind in ("drums", "sampler", "ambience") or any(n.pitch is None for n in notes):
             continue
         lo = min(n.pitch for n in notes)
         hi = max(n.pitch for n in notes)

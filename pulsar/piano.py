@@ -64,7 +64,8 @@ class Region:
     trigger: str = "attack"  # or "release": sounds when the key comes up (string resonance, hammer noise)
     rt_decay: float = 0.0  # dB per second the key was held, for release sounds
     keytrack: float = 1.0  # 0 for sounds that keep their pitch (hammer noise)
-    loop: tuple | None = None  # (start, end) frames, looped if a note outlasts the recording
+    loop: tuple | str | None = None  # (start, end) frames, or "auto": looped if a note outlasts the recording
+    rr: int = 0  # round-robin take: repeated notes alternate between takes of the same key and layer
 
 
 def parse_sfz(sfz: Path) -> list[Region]:
@@ -124,13 +125,15 @@ def parse_sfz(sfz: Path) -> list[Region]:
     return [r for r in regions if r.path.exists()]
 
 
-def find(regions: list[Region], key: int, vel: int) -> Region | None:
-    """The note-on region for a key and MIDI velocity: an exact match, else the nearest recorded key."""
+def find(regions: list[Region], key: int, vel: int, rr: int = 0) -> Region | None:
+    """The note-on region for a key and MIDI velocity: an exact match, else the nearest recorded key.
+    When a key and layer has several takes, `rr` picks one (round robin)."""
     cands = [r for r in regions if r.trigger == "attack" and r.lovel <= vel <= r.hivel]
     exact = [r for r in cands if r.lokey <= key <= r.hikey]
-    if exact:
-        return exact[0]
-    return min(cands, key=lambda r: abs(r.center - key)) if cands else None
+    if not exact and cands:
+        c = min(cands, key=lambda r: abs(r.center - key)).center
+        exact = [r for r in cands if r.center == c]
+    return exact[rr % len(exact)] if exact else None
 
 
 def releases(regions: list[Region], key: int, vel: int) -> list[Region]:

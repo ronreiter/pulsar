@@ -977,6 +977,37 @@ def b_piano(interp, name="grand", **kw):
     return Instrument("piano", str(name), "piano", {}, {}, False, octave, mix, base_gain=-4.0, sample=opts)
 
 
+ORCHESTRA_KEYS = {"release", "hold", "dynamics", "transpose"}
+
+
+def b_orchestra(interp, name, **kw):
+    """A sampled orchestral instrument (VSCO-2 CE, CC0): orchestra("violins"), orchestra("celli_spic"),
+    orchestra("horns"), ... or orchestra("percussion"), a kit of bass drum, taiko, timpani, gong and more."""
+    from . import orchestra
+    name = str(name)
+    if name not in orchestra.names():
+        raise PulsarError(f"no orchestra instrument named {name!r}", hint=suggest(name, orchestra.names()) or
+                          "pulsar presets lists them")
+    kit = name == "percussion"
+    opts = {"name": name, "kit": kit, "release": None, "hold": 0.0, "dynamics": 1.0, "transpose": 0.0, "levels": {}}
+    mixer = {}
+    for k, v in kw.items():
+        if k in presets.MIXER_KEYS or k in interp.song.buses:
+            mixer[k] = v
+        elif kit and k.endswith("_gain") and k[:-5] in orchestra.KIT:
+            opts["levels"][k[:-5]] = float(num(v, None, k))
+        elif k in ORCHESTRA_KEYS:
+            opts[k] = float(num(v, None, k))
+        else:
+            extra = [f"{x}_gain" for x in orchestra.KIT] if kit else []
+            raise PulsarError(f"orchestra() has no parameter {k!r}",
+                              hint=suggest(k, list(ORCHESTRA_KEYS) + list(presets.MIXER_KEYS) + extra))
+    octave = int(mixer.pop("octave", orchestra.PITCHED[name][3] if not kit else 4))
+    mix = {"gain": 0.0}
+    mix.update(mixer)
+    return Instrument("orchestra", name, "orchestra", {}, {}, False, octave, mix, base_gain=-5.0, sample=opts)
+
+
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
 
 
@@ -1191,7 +1222,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "orchestra": b_orchestra,
     "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,
