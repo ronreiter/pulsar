@@ -956,8 +956,12 @@ def b_piano(interp, name="grand", **kw):
     """A sampled acoustic piano: "grand" (Yamaha C5, 16 velocity layers) or "upright" (Kawai).
     The samples download once on the first render."""
     from . import piano
-    if str(name) not in piano.PIANOS:
-        raise PulsarError(f"no piano named {name!r}", hint=f"use {' or '.join(repr(k) for k in piano.PIANOS)}")
+    if str(name) not in piano.PIANOS or str(name) == "accordion":
+        raise PulsarError(f"no piano named {name!r}", hint='use "grand" or "upright"')
+    return b_piano_any(interp, name, **kw)
+
+
+def b_piano_any(interp, name, **kw):
     opts = {"name": str(name), "release": None, "pedal": 0.0, "resonance": 1.0, "hammer": 1.0, "dynamics": 1.0,
             "transpose": 0.0, "humanize": 6.0}
     mixer = {}
@@ -1011,6 +1015,12 @@ def b_orchestra(interp, name, **kw):
     mix = {"gain": 0.0}
     mix.update(mixer)
     return Instrument("orchestra", name, "orchestra", {}, {}, False, octave, mix, base_gain=-5.0, sample=opts)
+
+
+def b_accordion(interp, **kw):
+    """A sampled Hohner button accordion (CC0): the same player as piano(), with its own release."""
+    inst = b_piano_any(interp, "accordion", **kw)
+    return inst
 
 
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
@@ -1227,7 +1237,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "orchestra": b_orchestra,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra,
     "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,

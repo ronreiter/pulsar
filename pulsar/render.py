@@ -537,6 +537,8 @@ class Renderer:
                 # The trailer-drum low end: a pitched-down sine thump under the skin.
                 z = thump_wave(THUMP[voice])
                 s0 = int(round((nt.time + jitter) * OUT_SR))
+                if s0 < 0:  # humanized to just before the song starts
+                    z, s0 = z[-s0:], 0
                 e0 = min(n_out, s0 + len(z))
                 if e0 > s0:
                     g = opt["thump"] * 0.35 * (vel / 127) ** 1.5 * 10 ** (opt["levels"].get(voice, 0.0) / 20)

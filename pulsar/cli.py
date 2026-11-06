@@ -266,7 +266,9 @@ def cmd_presets(args):
     from . import orchestra, piano
     print("\nsampled pianos  (piano(\"name\", pedal: 0.4))")
     for name, info in piano.PIANOS.items():
-        print(f"  {name:12} {info['title']} ({info['license']}, {info['size']} once)")
+        if name != "accordion":
+            print(f"  {name:12} {info['title']} ({info['license']}, {info['size']} once)")
+    print("\nsampled accordion  (accordion(gain: -2, dynamics: 2); a Hohner button accordion, CC0, 5 MB once)")
     print("\nsampled orchestra  (orchestra(\"name\", gain: -2); VSCO-2 CE, CC0, downloads per instrument)")
     for name, (_, _, _, octv, desc) in orchestra.PITCHED.items():
         print(f"  {name:15} oct {octv}  {desc}")

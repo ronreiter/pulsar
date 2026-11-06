@@ -1,0 +1,95 @@
+// Krav: fighter theme for a fictional fighting game. A phrygian dominant, 148 BPM, ~2:10.
+// "Krav" is Hebrew for battle: Noa, an invented Tel Aviv street fighter, at 4 a.m. in the city
+// that loves its psy-trance. A rolling psy bass, an acid line that keeps opening, a saw lead
+// on the scale's sharp edges. Original throughout.
+tempo 148
+key "A phrygian_dominant"
+seed 302
+loudness -10
+
+bus hall  = reverb(decay: 2.2, size: 0.75, damp: 0.4, predelay: 0.02, lowcut: 200)
+bus echo  = delay(3/16, feedback: 0.42, tone: 0.5)
+
+track kick = drums("techno", bd_tune: 52, bd_decay: 0.24, bd_click: 0.5, bd_gain: -3)
+track tops = drums("909", hh_decay: 0.04, hh_gain: -5, oh_gain: -6, cp_gain: -2, rd_gain: -8, hall: 0.1)
+track bass = synth("fm_bass", width: 0, duck: 0.3, gain: 6) >> hp(38) >> comp(threshold: -16, ratio: 4, attack: 0.002, release: 0.06)
+track acid = synth("acid", cutoff: 0.24, resonance: 0.72, env_amount: 3, fdecay: 0.12, echo: 0.2, duck: 0.45, pan: -0.12, gain: -5)
+  >> hp(240) >> drive(amount: 0.35, tone: 0.65, mix: 0.6)
+track lead = synth("supersaw", cutoff: 0.58, hall: 0.25, echo: 0.22, duck: 0.4, pan: 0.08, gain: 13) >> hp(320)
+track stab = synth("stab", hall: 0.25, echo: 0.25, duck: 0.5, gain: 5) >> hp(260)
+track tek  = orchestra("percussion", hall: 0.12, pan: 0.25, gain: -6, doum_gain: 0, tek_gain: -2, ka_gain: -2, humanize: 3)
+track shout = voice("af_nova", mode: "speak", lyrics: "Krav / Round one / Fight", speed: 0.95, hall: 0.25, echo: 0.2, gain: 7)
+  >> hp(160) >> drive(amount: 0.15, tone: 0.65, mix: 0.4)
+track rise = synth("noise_sweep", hall: 0.3, gain: -5)
+track boom = synth("impact", hall: 0.25, gain: 5)
+
+let roots = "<a1 a1 bb1 a1 a1 a1 c#2 bb1>"
+let roll  = roots.struct("[~ x x x]*4").legato(0.8).vel("[0 .95 .72 .84]*4")
+let squelch = "<[a2 a3 ~ a2 bb2 ~ a2 c#3 a2 ~ e3 ~ a2 bb2 ~ g2] [a2 a3 ~ a2 bb2 ~ a2 c#3 d3 ~ c#3 ~ bb2 a2 g2 bb2]>"
+  .accent("x ~ ~ x ~ ~ x ~ ~ x ~ ~ x ~ x ~").slide("~ ~ ~ ~ x ~ ~ x ~ ~ ~ ~ ~ x ~ ~")
+let theme = "<[a4 _ bb4 c#5 _ _ d5 _ e5 _ _ _ d5 _ c#5 bb4] [a4 _ _ _ ~ ~ ~ ~ c#5 bb4 a4 g4 a4 _ _ _] [e5 _ f5 e5 d5 _ c#5 _ d5 _ c#5 _ bb4 _ a4 _] [bb4 _ _ c#5 _ _ e5 _ g5 _ _ f5 _ e5 _ _]>"
+let hits = "<A A Bb A>".struct("[x ~ ~ x ~ ~ x ~]").legato(0.4).vel("[1 .78 .9]")
+let beat = "[~ hh]*4, ~ cp ~ cp, ~ ~ ~ [~ oh]"
+let drive_beat = "hh*16?0.2, [~ hh]*4, ~ cp ~ cp, ~ ~ rd ~"
+let hands = "[doum ka ka tek ka doum tek ka]*2"
+
+section round_one 8 {
+  play tek hands.vel("[.8 .45 .4 .7]*4")
+  play acid squelch from 4
+  play shout "x" at 1
+  play shout "x" at 5
+  play rise "0/4" from 4
+  automate acid.cutoff 0.14 -> 0.22 from 4
+}
+section streets 16 {
+  play boom "0" at 0
+  play kick "bd*4"
+  play tops beat
+  play bass roll
+  play acid squelch
+  play tek hands.vel("[.7 .4 .35 .6]*4") from 8
+  automate acid.cutoff 0.18 -> 0.38
+}
+section krav 16 {
+  play boom "0" at 0
+  play kick "bd*4"
+  play tops drive_beat
+  play bass roll
+  play acid squelch
+  play stab hits
+  play lead theme
+  automate acid.cutoff 0.3 -> 0.42
+}
+section rooftop 8 {
+  play tek hands.vel("[.85 .45 .4 .7]*4")
+  play stab hits.velscale(0.8)
+  play acid squelch.fast(2) from 4
+  play tops "cp*4".vel(0.6) from 4 to 6
+  play tops "cp*8".vel(0.75) from 6 to 7
+  play tops "cp*16".vel(0.85) from 7
+  play shout "x" at 6
+  play rise "0/2" from 6
+  automate acid.cutoff 0.12 -> 0.55 from 4
+}
+section knockout 24 {
+  play boom "0" at 0
+  play boom "0" at 12
+  play kick "bd*4"
+  play tops drive_beat
+  play bass roll
+  play acid squelch
+  play stab hits
+  play lead theme
+  play lead theme.oct(1).velscale(0.7) from 12
+  play tek hands.vel("[.8 .45 .4 .7]*4")
+  automate acid.cutoff 0.36 -> 0.68
+}
+section down 6 {
+  play boom "0" at 0
+  play stab "A".vel(1).legato(0.5) at 0
+  play acid "a2*16".vel(0.7) to 3
+  play tek hands.vel("[.7 .4 .35 .6]*4") to 4
+  automate acid.cutoff 0.6 -> 0.1 to 3
+  automate master.gain 0 -> -24 from 3
+}
+arrange round_one, streets, krav, rooftop, knockout, down

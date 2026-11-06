@@ -1,0 +1,88 @@
+// L'Île aux Vents: a solo violin over a restless upright piano, by the sea. B minor, 72 BPM, ~3:30.
+// Original melody. The piano rolls in triplets and never rests; the violin sings long, plain lines
+// with cellos underneath, an accordion breathes in the second half, and real waves stay under
+// it all. It grows by addition and then is left to the water.
+tempo 72
+key "B minor"
+seed 71
+loudness -16
+
+bus room = reverb(decay: 1.9, size: 0.6, damp: 0.5, predelay: 0.014)
+bus hall = reverb(decay: 4.2, size: 0.9, damp: 0.45, predelay: 0.035, lowcut: 170)
+
+track waves  = ambience("ocean waves", id: "File:Ocean Waves on a Tropical Beach.ogg", fade: 10, width: 1.3, gain: -2)
+  >> hp(100) >> eq(low: -2, low_freq: 170)
+track keys   = piano("upright", pedal: 0.25, room: 0.25, hall: 0.15, gain: 2, humanize: 7) >> hp(60) >> eq(low: -1.5, mid: 2, mid_freq: 2500, high: 5, high_freq: 5000)
+track violin = orchestra("violin", room: 0.2, hall: 0.4, pan: -0.08, gain: -3, release: 0.5, humanize: 12)
+track celli  = orchestra("celli", players: 2, room: 0.15, hall: 0.35, pan: 0.22, gain: 12, release: 0.9)
+track accor  = accordion(room: 0.2, hall: 0.3, pan: 0.28, gain: -9, humanize: 9) >> hp(190)
+track glock  = orchestra("glockenspiel", hall: 0.55, pan: -0.25, gain: -2, humanize: 6)
+
+let prog_a = "<Bm G D A>"
+let prog_b = "<Em G Bm A Em G A F#>"
+let bass_a = "<b1 g1 d2 a1>"
+let bass_b = "<e2 g1 b1 a1 e2 g1 a1 f#1>"
+fn rolling(prog) = prog.voicing("smooth").arp("updown", 1/12, 2).vel("[.64 .42 .46 .54 .42 .46]*2")
+let song_a = "<[f#5 _ _ _ e5 _ d5 _] [b4 _ _ _ d5 _ _ _] [a5 _ _ _ f#5 _ e5 _] [e5 _ _ _ c#5 _ _ _] [f#5 _ _ _ b5 _ a5 f#5] [g5 _ _ _ d5 _ _ _] [f#5 _ e5 d5 a4 _ d5 _] [e5 _ _ _ _ _ ~ ~]>"
+let song_b = "<[g5 _ _ _ b5 _ _ _] [d6 _ _ _ b5 _ g5 _] [f#5 _ _ _ d5 _ _ _] [e5 _ c#5 _ a4 _ _ _] [e5 _ g5 _ b5 _ _ _] [a5 _ g5 _ d5 _ b4 _] [c#5 _ e5 _ a5 _ _ _] [a#5 _ _ _ f#5 _ _ _]>"
+let a_dyn = "<.56 .52 [.62 .62 .58 .58] .54 [.6 .6 .7 .66] .6 [.62 .6 .58 .52] .48>"
+let b_dyn = "<[.62 .72] [.82 .74 .66] .58 [.56 .5 .48] [.6 .68 .78] [.72 .66 .6 .54] [.58 .66 .76] [.8 .66]>"
+let bells = "<[~ ~ ~ ~ f#5 ~ ~ ~] ~ [~ ~ ~ ~ a5 ~ ~ ~] ~>"
+
+section shore 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.72) from 2
+  automate waves.gain -4 -> -7 from 4
+}
+section piano_only 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.86)
+  play keys bass_a.vel(0.5)
+  play glock bells.vel(0.45)
+}
+section sings 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.82)
+  play keys bass_a.vel(0.48)
+  play violin song_a.vel(a_dyn).velscale(0.9)
+}
+section farther 8 {
+  play waves "x"
+  play keys rolling(prog_b).velscale(0.88)
+  play keys bass_b.vel(0.52)
+  play violin song_b.vel(b_dyn)
+  play celli bass_b.oct(1).vel(0.34)
+}
+section sings2 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.9)
+  play keys bass_a.vel(0.54)
+  play violin song_a.vel(a_dyn)
+  play celli bass_a.oct(1).vel(0.38)
+  play accor "<[d4,f#4] [d4,g4] [d4,a4] [c#4,e4]>".vel(0.5)
+}
+section farther2 8 {
+  play waves "x"
+  play keys rolling(prog_b)
+  play keys bass_b.vel(0.6)
+  play violin song_b.vel(b_dyn).velscale(1.12)
+  play celli bass_b.oct(1).vel(0.46)
+  play accor "<[e4,g4] [d4,g4] [d4,f#4] [c#4,e4] [e4,g4] [d4,g4] [c#4,e4] [c#4,f#4]>".vel(0.58)
+  play glock song_b.velscale(0.4) from 4
+}
+section sings3 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.82)
+  play keys bass_a.vel(0.46)
+  play violin song_a.vel(a_dyn).velscale(0.8)
+  play celli bass_a.oct(1).vel(0.3)
+}
+section water 8 {
+  play waves "x"
+  play keys rolling(prog_a).velscale(0.6) to 4
+  play keys "[b1,f#2,b2,d3,f#3,b3]".slow(4).vel(0.42) from 4
+  play violin "[f#5 _ _ _ _ _ _ _] [b4 _ _ _ _ _ _ _]".slow(2).vel(0.36) to 4
+  automate waves.gain -7 -> -3 from 2
+  automate master.gain 0 -> -18 from 6
+}
+arrange shore, piano_only, sings, farther, sings2, farther2, sings3, water

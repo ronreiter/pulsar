@@ -1,0 +1,107 @@
+// Shimshon: fighter theme for a fictional fighting game. E phrygian dominant, 140 BPM, ~2:15.
+// The strongman of the biblical story: stomping arcade techno under real brass and war drums.
+// Everything is original. The announcer is a neural voice; the break is the temple pillars.
+tempo 140
+key "E phrygian_dominant"
+seed 301
+loudness -11
+
+bus hall  = reverb(decay: 2.6, size: 0.82, damp: 0.42, predelay: 0.02, lowcut: 180)
+bus arena = reverb(decay: 2.2, size: 0.8, damp: 0.32, predelay: 0.015, lowcut: 100)
+
+track kick  = drums("techno", bd_tune: 48, bd_decay: 0.32, bd_gain: -3)
+track tops  = drums("909", hh_gain: -6, oh_gain: -7, cp_gain: -3, sd_gain: -4, arena: 0.12)
+track bass  = synth("reese", cutoff: 0.32, resonance: 0.3, duck: 0.65, width: 0, gain: -1)
+  >> hp(40) >> drive(amount: 0.3, tone: 0.5, mix: 0.6)
+track stab  = synth("supersaw", cutoff: 0.5, decay: 0.2, sustain: 0.1, release: 0.15, duck: 0.45, hall: 0.2, gain: 8)
+  >> hp(220)
+track lead  = synth("supersaw", cutoff: 0.62, duck: 0.3, hall: 0.25, pan: 0.05, gain: 14) >> hp(350)
+track war   = orchestra("percussion", players: 3, thump: 0.6, arena: 0.5, gain: 0, taiko_gain: 2, gong_gain: -2, crash_gain: -6)
+  >> comp(threshold: -18, ratio: 3, attack: 0.015, release: 0.2, makeup: 2)
+track horns = orchestra("horns", players: 3, hall: 0.35, pan: -0.2, gain: -2)
+track bones = orchestra("trombones", players: 3, hall: 0.3, pan: 0.2, gain: -13)
+track tpt   = orchestra("trumpets", players: 2, hall: 0.35, pan: 0.05, gain: -1)
+track trem  = orchestra("celli_trem", players: 2, hall: 0.4, gain: 3)
+track shout = voice("am_onyx", mode: "speak", lyrics: "Shimshon / Fight / Shimshon", speed: 0.85, hall: 0.3, gain: 7)
+  >> hp(120) >> drive(amount: 0.2, tone: 0.6, mix: 0.4)
+track rise  = synth("noise_sweep", hall: 0.3, gain: -6)
+track boom  = synth("impact", arena: 0.3, gain: 6)
+
+let riff  = "<[e2 ~ e2 e3 ~ e2 f2 ~ e2 ~ e2 e3 ~ g#2 f2 ~] [e2 ~ e2 e3 ~ e2 f2 ~ e2 ~ e2 e3 a2 g#2 f2 e2]>"
+let hits  = "<E E F E>".struct("[x ~ ~ x ~ ~ x ~]").legato(0.5).vel("[1 .8 .9]")
+let theme = "<[e5 _ _ f5 g#5 _ _ _ a5 _ g#5 _ f5 _ e5 _] [f5 _ e5 _ d5 _ c5 _ b4 _ _ _ c5 _ d5 _] [e5 _ _ f5 g#5 _ _ _ b5 _ a5 _ g#5 _ f5 _] [e5 _ _ _ _ _ _ _ ~ ~ ~ ~ ~ ~ ~ ~]>"
+let pow   = "<[e3,b3] [e3,b3] [f3,c4] [e3,b3]>"
+let drum1 = "[taiko ~ ~ taiko ~ ~ taiko ~], [bd ~ ~ ~ ~ ~ ~ ~]"
+let drum2 = "<[taiko ~ ~ taiko ~ ~ taiko ~] [taiko ~ ~ taiko ~ ~ taiko taikoh] [taiko ~ ~ taiko ~ ~ taiko ~] [taiko ~ taiko taiko [taikoh taikoh] [taiko taiko] [taiko taiko] [taiko taiko]]>"
+let groove = "[~ hh]*4, ~ cp ~ cp"
+
+section select 8 {
+  play war drum1.vel(0.7) to 6
+  play war "taiko*8".vel("[.7 .8 .85 .9]*2") from 6 to 7
+  play war "taiko*16".vel(1) from 7
+  play trem "<e2 e2 f2 e2>".vel(0.55)
+  play shout "x" at 1
+  play shout "x" at 5.5
+  play rise "0/4" from 4
+}
+section walk_in 16 {
+  play boom "0" at 0
+  play war "[gong, crash, taiko] ~ ~ ~".vel(1) at 0
+  play kick "bd*4"
+  play tops groove
+  play bass riff
+  play stab hits to 8
+  play stab hits.velscale(1.1) from 8
+  play bones pow.vel(0.7) from 8
+}
+section fight 16 {
+  play boom "0" at 0
+  play war "[crash, taiko] ~ ~ ~".vel(1) at 0
+  play kick "bd*4"
+  play tops groove
+  play war drum2.vel("[1 .6 .6 .9 .6 .6 .95 .7]")
+  play bass riff
+  play stab hits
+  play horns theme.oct(-2).vel(0.85)
+  play tpt theme.oct(-1).vel(0.8)
+  play bones pow.vel(0.8)
+}
+section pillars 8 {
+  play trem "<e2 e2 f2 e2>".vel(0.8)
+  play war "taiko ~ ~ ~ taiko ~ ~ ~".vel(0.85) to 4
+  play war "[taiko ~ taiko ~]*2".vel(0.9) from 4 to 6
+  play war "taiko*8".vel(1) from 6 to 7
+  play war "taiko*16, bd*8".vel(1) from 7
+  play horns "<[e3,b3] [e3,b3] [f3,c4] [f3,c4]>".vel(0.75)
+  play tops "sd*4".vel(0.6) from 4 to 6
+  play tops "sd*8".vel(0.75) from 6 to 7
+  play tops "sd*16".vel(0.85) from 7
+  play shout "x" at 6
+  play rise "0/2" from 6
+  automate trem.gain -4 -> 4
+}
+section final 24 {
+  play boom "0" at 0
+  play boom "0" at 12
+  play war "[gong, crash, bd, taiko] ~ ~ ~".vel(1) at 0
+  play war "[crash, bd, taiko] ~ ~ ~".vel(0.95) at 12
+  play kick "bd*4"
+  play tops "[~ hh]*4, ~ cp ~ cp, sd*16?0.15"
+  play war drum2.vel("[1 .6 .6 .9 .6 .6 .95 .7]")
+  play bass riff
+  play stab hits
+  play lead theme
+  play horns theme.oct(-2).vel(1)
+  play tpt theme.oct(-1).vel(1)
+  play bones pow.vel(1)
+}
+section fatal 8 {
+  play boom "0" at 0
+  play war "[gong, crash, bd, taiko] ~ ~ ~".vel(1) at 0
+  play bones "[e2,b2,e3]".slow(2).vel(1) to 2
+  play horns "[e3,g#3,b3]".slow(2).vel(1) to 2
+  play tpt "[g#4,b4]".slow(2).vel(1) to 2
+  play trem "e2".slow(6).vel(0.45) from 2
+  automate master.gain 0 -> -24 from 4
+}
+arrange select, walk_in, fight, pillars, final, fatal

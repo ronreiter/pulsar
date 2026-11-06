@@ -231,6 +231,9 @@ the first render (`pulsar check` stays offline). The grand is CC BY: renders tha
 it in `<output>.credits.txt`. Real pianos are stretch-tuned (the bass sits a few cents flat),
 which blends with synths at A440 without beating noticeably.
 
+`accordion()` is a sampled Hohner button accordion (CC0, 5 MB once) on the same player as `piano()`, with the
+same settings. It has one recorded dynamic, so `dynamics: 2` makes velocity shape it more.
+
 ## Orchestra (sampled)
 
 `orchestra("violins")` is a real orchestral section: the Versilian Studios Chamber Orchestra 2
@@ -241,10 +244,11 @@ a crossfade. Each instrument downloads once (10-75 MB), on the first render that
 
 | family | instruments (`_spic` spiccato, `_trem` tremolo, `_pizz` pizzicato, `_stac` staccato) |
 |---|---|
+| solo | `violin` `violin_pizz` (solo violin), `glockenspiel` (sounds an octave above the written note) |
 | strings | `violins` `violins_spic` `violins_trem` `violins_pizz` `violas` `violas_spic` `violas_trem` `celli` `celli_spic` `celli_trem` `celli_pizz` `basses` `basses_spic` `basses_pizz` `harp` |
 | brass | `horns` `horns_stac` `trombones` `trombones_stac` `tuba` `tuba_stac` `trumpets` `trumpets_stac` |
 | woodwinds | `flute` `oboe` `clarinet` `bassoon` |
-| percussion | `orchestra("percussion")`, a kit: `bd` `bdm` (muted) `taiko` `taikoh` (hand) `taikos` (sticks) `tenor` `timp` `timph` `gong` `crash` `sus` `snare` `anvil`; rolls `bdroll` `timproll` `snareroll` and cymbal swells `swell` `swellshort` |
+| percussion | `orchestra("percussion")`, a kit: `bd` `bdm` (muted) `taiko` `taikoh` (hand) `taikos` (sticks) `tenor` `timp` `timph` `gong` `crash` `sus` `snare` `anvil` `doum` `tek` `ka` (hand drums); rolls `bdroll` `timproll` `snareroll` and cymbal swells `swell` `swellshort` |
 
 ```
 track ostinato = orchestra("celli_spic")
