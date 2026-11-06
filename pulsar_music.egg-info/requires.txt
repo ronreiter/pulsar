@@ -10,3 +10,8 @@ pytest>=7
 
 [mcp]
 mcp>=1.0
+
+[voice]
+kokoro-onnx>=0.4
+pyworld>=0.3.4
+setuptools<70

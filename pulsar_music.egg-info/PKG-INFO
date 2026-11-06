@@ -1,9 +1,17 @@
 Metadata-Version: 2.4
 Name: pulsar-music
-Version: 0.1.0
+Version: 0.2.0
 Summary: A music language for AI: write electronic music as code, render it with studio-grade synthesis.
+License: GPL-3.0-or-later
+Project-URL: Homepage, https://ronreiter.github.io/pulsar/
+Project-URL: Repository, https://github.com/ronreiter/pulsar
+Keywords: music,synthesizer,dsl,ai,electronic-music,faust,live-coding
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Topic :: Multimedia :: Sound/Audio :: Sound Synthesis
+Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: dawdreamer>=0.8
 Requires-Dist: numpy>=1.24
 Requires-Dist: scipy>=1.10
@@ -12,5 +20,215 @@ Requires-Dist: pyloudnorm>=0.1
 Requires-Dist: lark>=1.1
 Provides-Extra: mcp
 Requires-Dist: mcp>=1.0; extra == "mcp"
+Provides-Extra: voice
+Requires-Dist: kokoro-onnx>=0.4; extra == "voice"
+Requires-Dist: pyworld>=0.3.4; extra == "voice"
+Requires-Dist: setuptools<70; extra == "voice"
 Provides-Extra: dev
 Requires-Dist: pytest>=7; extra == "dev"
+Dynamic: license-file
+
+<p align="center">
+  <img src="docs/assets/studio.png" alt="Pulsar Studio: code on the left, an Ableton-style arrangement on the right" width="100%">
+</p>
+
+<p align="center"><img src="docs/assets/icon.png" alt="" width="96"></p>
+<h1 align="center">Pulsar</h1>
+<p align="center"><b>Electronic music as code, built for AI.</b><br>
+A small, readable music language · a studio-grade synthesis engine · a mix report that replaces ears.</p>
+
+<p align="center">
+  <a href="https://ronreiter.github.io/pulsar/">Website</a> ·
+  <a href="https://ronreiter.github.io/pulsar/#listen">Listen</a> ·
+  <a href="pulsar/LANGUAGE.md">Language reference</a> ·
+  <a href="#pulsar-studio-macos">Pulsar Studio</a>
+</p>
+
+---
+
+An AI model writes a song in Pulsar, renders it, reads the mix report (loudness, tonal
+balance, energy per section, masking between tracks) and revises it — no ears required.
+[`examples/deep_house_agent.pulse`](examples/deep_house_agent.pulse) was written by a fresh
+agent that was given nothing but `pulsar docs` and the CLI.
+**[Hear it on the website →](https://ronreiter.github.io/pulsar/#listen)**
+[`examples/night_bus.pulse`](examples/night_bus.pulse) is a second deep house track built around
+a clean sawtooth lead whose patch was fitted to a reference recording with `pulsar timbre`, and
+[`examples/skyline.pulse`](examples/skyline.pulse) is an epic progressive-house track with layered
+chords and the same lead bathed in reverb. [`examples/low_orbit.pulse`](examples/low_orbit.pulse)
+is melodic techno: a rolling bass between the kicks, an acid line on the chord tones that slowly opens, and the lead held back for the climax. [`examples/glasshouse.pulse`](examples/glasshouse.pulse) is built around one lead
+sound: a clean sawtooth through a dotted-eighth ping-pong delay and a long, wide hall. [`examples/lanterns.pulse`](examples/lanterns.pulse)
+takes the same ideas to a longer D-minor track. [`examples/driftwood.pulse`](examples/driftwood.pulse) is melodic
+deep house built on a pedal point: the lead repeats one note while the chords move underneath. [`examples/still_water.pulse`](examples/still_water.pulse)
+is relaxing spa music: a sampled grand piano and pads over a real dawn chorus and a trickling stream, pulled from
+free stock recordings with `ambience()`.
+[`examples/soft_rain.pulse`](examples/soft_rain.pulse) (an upright piano, cellos and a flute by a rainy window)
+and [`examples/low_tide.pulse`](examples/low_tide.pulse) (harp in a slow 12/8, grand piano and violins over
+ocean waves) are two more in the same spirit.
+[`examples/open_source.pulse`](examples/open_source.pulse) is a short house track made only
+from open instruments: Surge XT presets and drum recordings from the open sound library.
+[`examples/iron_meridian.pulse`](examples/iron_meridian.pulse) is epic orchestral trailer music on the
+sampled orchestra: a spiccato ostinato, a low horn theme and a build that climbs a semitone every two bars
+into one beat of silence before the hit.
+
+```
+tempo 122
+key "A minor"
+
+track kick = drums("house")
+track bass = synth("moog_bass", duck: 0.6) >> comp(ratio: 3)
+track pad  = synth("pad", reverb: 0.4, duck: 0.6)
+
+let prog = "<Am9 Dm9 Fmaj9 Em7>"
+
+section intro 8 {
+  play kick "bd*4, [~ hh]*4"
+  play pad  prog.voicing("smooth")
+  automate pad.cutoff 0.25 -> 0.5
+}
+section drop 16 extends intro {
+  play kick "bd*4, ~ cp ~ cp, [~ hh]*4"
+  play bass "<a1 d2 f1 e1>".struct("x ~ ~ x ~ ~ x ~")
+}
+arrange intro, drop, drop
+```
+
+```
+$ pulsar render song.pulse -o song.mp3
+loudness -10.0 LUFS   true peak -1.0 dBTP   crest 10.2 dB
+spectrum (dB vs loudest band): sub +0  bass -1  low_mid -3  mid -11  presence -17 ...
+energy arc:
+  intro        bar    0   -12.1 LUFS  ###########
+  drop         bar   24    -8.8 LUFS  ##############
+- chord and keys both peak in the low_mid band and may mask each other; ...
+```
+
+## Why it's built this way
+
+**A language models already almost know.** Rhythm uses TidalCycles-style mini-notation
+(`"bd*4, ~ cp ~ cp"`, `"<Am F C G>"`, `"bd(3,8)"`), wrapped in a tiny conventional syntax:
+tracks, sections that extend each other, `play`, `automate`, `arrange`, plus `let`,
+functions, lambdas, loops and conditionals. Steps can be note names, scale degrees, chord
+symbols or roman numerals in the song's key; `.voicing("smooth")` voice-leads progressions.
+Errors carry line, column and "did you mean".
+
+**Sound quality first.** Faust DSP compiled to native code through DawDreamer, rendered note
+by note at 96 kHz and placed sample-exactly:
+- band-limited oscillators with unison and analog drift; Moog ladder, TB-303 diode,
+  Korg MS-20 and Oberheim SEM filter models; FM and Karplus-Strong engines;
+- 14 synthesized drum voices in 5 kits, a sampler (pitch / slice / gate / fit);
+- neural singing and speaking voices (Kokoro-82M, 54 voices, local): lyrics sung one word
+  per note, re-pitched with the WORLD vocoder so formants stay natural, optionally doubled;
+- a sampled orchestra (VSCO-2 CE, CC0): string sections with spiccato, tremolo and pizzicato, brass,
+  woodwinds and big percussion (taiko, timpani, gong, cymbal swells), velocity-layered with
+  alternating takes;
+- an open sound library (an open-source take on Splice): search, preview and insert openly licensed
+  samples and sound effects (VCSL, Wikimedia Commons, Freesound) from the CLI or Studio (⌘L);
+- plugin synths: Surge XT (open source, installed automatically with its ~2,000 patches), Vital,
+  Serum 2 or any VST3 / AU, with presets, parameters and sample-accurate automation;
+- sampled acoustic pianos: a Yamaha C5 grand with 16 velocity layers and a Kawai upright, with
+  dampers, key-up string resonance and hammer noise;
+- free stock ambience -- birds, water, rain, waves -- searched in openly licensed archives
+  (Wikimedia Commons, Freesound), license-filtered, looped seamlessly and credited per render;
+- Zita reverb, ping-pong delay, chorus, saturation, EQ, compression, sidechain ducking;
+- glue compression, a 4× oversampled soft clipper and a true-peak limiter to a LUFS target.
+
+**Defaults are mixed.** 34 presets are loudness-calibrated with balanced faders, so a song
+that only picks presets already sits right; `gain:` is relative to that.
+
+**Feedback replaces listening.** Every render reports loudness, true peak, spectral balance,
+stereo image, the energy arc per section, per-track levels, masking — and concrete fixes.
+Match a reference you own with `pulsar compare` / `pulsar match`, or fit a synth patch to a
+recording's timbre with `pulsar timbre`.
+
+## Install
+
+macOS or Linux (on Windows, WSL):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ronreiter/pulsar/main/install.sh | sh
+```
+
+That installs the `pulsar` command for your user (through [uv](https://docs.astral.sh/uv/), in its
+own Python 3.12 environment) and downloads the instruments it plays first: Surge XT, an
+open-source synthesizer, and a sampled upright piano. Everything else -- the grand piano, the
+orchestra, stock sounds, the singing voice -- downloads the first time a song uses it, into
+`~/.cache/pulsar`. Pulsar needs `ffmpeg` for MP3 export (`brew install ffmpeg`). Run the line
+again to upgrade; `pulsar setup --all` fetches every instrument ahead of time.
+
+From a clone, for development:
+
+```sh
+git clone https://github.com/ronreiter/pulsar && cd pulsar
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[mcp,voice,dev]"
+```
+
+## Use
+
+```sh
+pulsar docs                                     # the language reference — give this to the model
+pulsar check song.pulse                         # compile; prints sections, tracks, note ranges
+pulsar render song.pulse --play                 # mastered 48 kHz WAV + mix report
+pulsar render song.pulse -o song.mp3            # 320 kbps MP3 (--mp3 writes both)
+pulsar render song.pulse --only drop            # one section, for fast iteration
+pulsar render song.pulse --stems stems/         # per-track stems
+pulsar presets / pulsar params                  # sounds and every parameter
+pulsar voices                                   # the singing / speaking voices
+pulsar compare mine.wav reference.wav           # sonic profile side by side
+pulsar match song.pulse reference.wav           # tune a master EQ toward a reference
+pulsar timbre recording.wav --register c3-c5    # fit a synth patch to a recording's timbre
+```
+
+(`pulsar` is `.venv/bin/pulsar` if the venv isn't activated.)
+
+### Pulsar Studio (macOS)
+
+A native editor with an Ableton-style arrangement beside it: piano rolls for melodic tracks,
+one row per voice for drums, automation curves under their tracks, sections on the ruler,
+and a playhead that lights up notes as they sound. The song recompiles as you type.
+
+Double-click a band (a track inside one section) to edit its notes in a piano-roll window: add,
+move, resize, copy and delete notes, set velocities, snap to a grid, then Apply. The band's code
+becomes a `clip([...])` of the notes in the editor (undo with ⌘Z there); other tracks are untouched.
+
+```sh
+app/build_app.sh && open "app/build/Pulsar Studio.app"    # needs only the Xcode command line tools
+```
+
+⌘R play / pause · ⌘. stop · ⌘⇧R re-render · ⌘F find (⌥⌘F replace, ⌘G next) · ⌘= / ⌘- zoom time (pinch, ⌘-scroll) ·
+⌥⌘= / ⌥⌘- stretch lanes (⌥-pinch, ⌥-scroll) · ⌘0 reset zoom · click the ruler to seek ·
+click a track header to jump to its line. ⌘L opens the Sound Library. Auto-follow pauses for 10 s whenever you scroll by hand.
+
+### MCP
+
+`pulsar mcp` serves `reference`, `check`, `render` (WAV or MP3), `analyze_file` and `play`
+over stdio, so an agent can compose, render, read the report and revise.
+
+```sh
+claude mcp add pulsar -- /path/to/pulsar/.venv/bin/pulsar mcp
+```
+
+## Layout
+
+| path | what |
+|---|---|
+| `pulsar/grammar.lark`, `parser.py`, `interp.py` | grammar, parser and evaluator |
+| `pulsar/pattern.py`, `theory.py` | pattern engine, mini-notation, notes/scales/chords |
+| `pulsar/song.py` | song model and compilation to timed notes |
+| `pulsar/presets.py` | the instrument library |
+| `pulsar/dsp/` | Faust voices and effects, engine wrapper, mastering |
+| `pulsar/render.py` | per-note rendering, mixing, parallel workers |
+| `pulsar/analyze.py`, `match.py`, `timbre.py` | mix report, reference matching, timbre fitting |
+| `pulsar/LANGUAGE.md`, `docs.py` | the reference (preset tables generated from code) |
+| `app/` | Pulsar Studio (SwiftUI) |
+| `docs/` | the website |
+| `tools/make_vox.py` | synthesizes sung-vowel samples for trying the sampler |
+
+## Contributing
+
+Issues and pull requests are welcome — new presets, effects, pattern methods, and songs
+written by models especially. Run `pytest -q` before sending a change.
+
+## License
+
+GPL-3.0 (Pulsar builds on [DawDreamer](https://github.com/DBraun/DawDreamer), which is GPL-3.0,
+and the [Faust](https://faust.grame.fr) libraries).

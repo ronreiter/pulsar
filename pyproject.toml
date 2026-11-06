@@ -1,6 +1,6 @@
 [project]
 name = "pulsar-music"
-version = "0.1.0"
+version = "0.2.0"
 description = "A music language for AI: write electronic music as code, render it with studio-grade synthesis."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,9 +12,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 
-[project.urls]
-Homepage = "https://ronreiter.github.io/pulsar/"
-Repository = "https://github.com/ronreiter/pulsar"
 dependencies = [
   "dawdreamer>=0.8",
   "numpy>=1.24",
@@ -23,6 +20,10 @@ dependencies = [
   "pyloudnorm>=0.1",
   "lark>=1.1",
 ]
+
+[project.urls]
+Homepage = "https://ronreiter.github.io/pulsar/"
+Repository = "https://github.com/ronreiter/pulsar"
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0"]

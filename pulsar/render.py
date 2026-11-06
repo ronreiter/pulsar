@@ -297,7 +297,11 @@ class Renderer:
         from fractions import Fraction as Fr
         from scipy.signal import resample_poly
         opt = tr.inst.sample
-        src = self.load_sample(opt["path"])
+        if opt.get("ref"):
+            from . import library
+            src = self.load_sample(str(library.fetch(opt["ref"], self.log)[0]))
+        else:
+            src = self.load_sample(opt["path"])
         total = src.shape[1]
         a0, a1 = int(opt["start"] * total), int(opt["end"] * total)
         region = src[:, a0:a1]
@@ -559,6 +563,86 @@ class Renderer:
                 e1 = min(n_out, t_off + z.shape[1])
                 if e1 > t_off and g > 1e-5:
                     out[:, t_off:e1] += z[:, :e1 - t_off] * g
+        return out
+
+    # -- plugins (VST3 / AU) -----------------------------------------------------------
+
+    def render_plugin(self, tr: Track, notes: list[Note], n_out: int, part=(0, 1)) -> np.ndarray:
+        """The whole track as one performance: the notes go to the plugin as MIDI, its parameters
+        follow the automation sample by sample, and the result is calibrated to the reference level."""
+        from . import plugins
+        out = np.zeros((2, n_out), np.float32)
+        if part[0] != 0 or not notes:
+            return out
+        opt = tr.inst.sample
+        path = plugins.ensure(opt["name"], self.log)
+        import dawdreamer as daw
+        eng = daw.RenderEngine(OUT_SR, 512)
+        try:
+            proc = eng.make_plugin_processor(f"plugin_{tr.name}", str(path))
+        except Exception as e:  # noqa: BLE001 -- the host raises plain exceptions
+            raise PulsarError(f"could not load {path.name}: {e}") from None
+        if opt.get("state"):
+            if not Path(opt["state"]).exists():
+                raise PulsarError(f"plugin state file not found: {opt['state']}")
+            proc.load_state(opt["state"])
+        if opt.get("preset"):
+            pre = plugins.find_preset(opt["name"], opt["preset"])
+            if pre.suffix.lower() == ".vstpreset":
+                ok = proc.load_vst3_preset(str(pre))
+            elif pre.suffix.lower() == ".fxp":
+                ok = proc.load_state(str(plugins.state_from_fxp(pre)))
+            else:
+                raise PulsarError(f"Pulsar can't load {pre.suffix} presets yet", hint="use .fxp or .vstpreset files")
+            if ok is False:
+                raise PulsarError(f"{path.stem} refused the preset {pre.name}")
+        desc = proc.get_parameters_description()
+        index = {}
+        for d in desc:
+            index.setdefault(plugins.norm(d["name"]), d["index"])
+
+        def param(name):
+            if plugins.norm(name) not in index:
+                from .errors import suggest
+                raise PulsarError(f"{path.stem} has no parameter {name!r}",
+                                  hint=suggest(plugins.norm(name), list(index)) or
+                                  f"pulsar plugins params {opt['name']} lists them")
+            return index[plugins.norm(name)]
+        for k, v in opt["params"].items():
+            proc.set_parameter(param(k), float(v))
+        # A short silent lead-in: a plugin can finish setting up during its first blocks.
+        pre = 0.25
+        for nt in notes:
+            if nt.pitch is None:
+                continue
+            key = int(round(nt.pitch + opt.get("transpose", 0)))
+            if 0 <= key <= 127:
+                proc.add_midi_note(key, int(min(127, max(1, round(nt.vel * 127)))), pre + float(nt.time),
+                                   max(0.01, float(nt.dur)))
+        lead = int(pre * OUT_SR)
+        for (trk, path_), spans in self.score.autos.items():
+            if trk == tr.name and path_[0] == "plugin":
+                i = param(path_[1])
+                curve = self.control_curve(spans, proc.get_parameter(i), n_out, OUT_SR)
+                curve = np.concatenate([np.full(lead, curve[0] if len(curve) else 0.0), curve])
+                proc.set_automation(i, np.clip(curve, 0, 1).astype(np.float32))
+        eng.load_graph([(proc, [])])
+        tail = 4.0
+        eng.render(pre + n_out / OUT_SR + tail)
+        a = eng.get_audio()[:2]
+        if a.shape[0] == 1:
+            a = np.repeat(a, 2, axis=0)
+        a = a[:, lead:lead + n_out].astype(np.float32)
+        out[:, :a.shape[1]] = a
+        if opt.get("calibrate", True):
+            # One gain for the whole track (its own dynamics stay): loudest 400 ms at the reference level.
+            win = int(0.4 * OUT_SR)
+            sq = (out.astype(np.float64) ** 2).mean(axis=0)
+            c = np.concatenate([[0], np.cumsum(sq)])
+            mom = (c[win:] - c[:-win]) / win if len(sq) > win else np.array([sq.mean()])
+            rms = math.sqrt(max(float(mom.max()), 1e-12))
+            if rms > 1e-6:
+                out *= 10 ** (REF_MOMENTARY_DB / 20) / rms
         return out
 
     # -- ambience ----------------------------------------------------------------------
@@ -829,6 +913,8 @@ class Renderer:
             return self.render_ambience(tr, notes, n, part)
         if tr.inst.kind in ("piano", "orchestra"):
             return self.render_piano(tr, notes, n, part)
+        if tr.inst.kind == "plugin":
+            return self.render_plugin(tr, notes, n, part)
         return self.render_synth(tr, notes, n, part)[:, :n]
 
     def post_audio(self, name: str, audio: np.ndarray) -> np.ndarray:
@@ -855,6 +941,8 @@ class Renderer:
             return 0.0
         if tr.inst.kind in ("piano", "orchestra"):
             return len(notes) * 0.03
+        if tr.inst.kind == "plugin":
+            return 0.0  # one performance, never split
         if tr.inst.kind == "voice":
             return len(notes) * 0.4
         uni = int(tr.inst.shape.get("unison", 1))
@@ -898,6 +986,24 @@ class Renderer:
             credits.append(dict(_orch.CREDIT, track=", ".join(users),
                                 credit=f'"{_orch.CREDIT["title"]}" by {_orch.CREDIT["creator"]} -- CC0 (no '
                                        f'attribution required) -- {_orch.CREDIT["url"]}'))
+        from . import library as _library
+        for t in active:
+            inst = self.song.tracks[t].inst
+            if inst.kind == "sampler" and inst.sample.get("ref"):
+                it = _library.fetch(inst.sample["ref"], self.log)[1]  # download once, before any worker
+                credits.append({"track": t, "title": it.title, "creator": it.creator, "license": it.license,
+                                "license_url": "", "url": it.url, "credit": it.credit()})
+        from . import plugins as _plugins
+        for t in active:
+            inst = self.song.tracks[t].inst
+            if inst.kind == "plugin":
+                _plugins.ensure(inst.sample["name"], self.log)  # install once, before any worker needs it
+                k = _plugins.key(inst.sample["name"])
+                if k in _plugins.KNOWN:
+                    title, _, _, lic, url = _plugins.KNOWN[k]
+                    credits.append({"track": t, "title": title, "creator": title, "license": lic, "license_url": "",
+                                    "url": url, "credit": f"{title} ({lic}) -- {url} (a synthesizer; nothing to credit "
+                                                          f"in the music itself)"})
         info["credits"] = credits
         for name, (audio, secs) in self._track_results(active, jobs):
             tr = self.song.tracks[name]

@@ -1,0 +1,56 @@
+// Open Source: a short house track made only from free, open instruments. A minor, 124 BPM, ~1:35.
+// The bass, pad and lead are Surge XT (an open-source synthesizer Pulsar installs by itself) with
+// factory presets; the clap, hats, shaker and tambourine are real recordings pulled by reference
+// from the open sound library (VCSL, CC0) -- Studio's Sound Library window (⌘L) writes these lines.
+tempo 124
+key "A minor"
+seed 404
+loudness -11
+
+bus hall = reverb(decay: 2.4, size: 0.8, damp: 0.45, predelay: 0.02, lowcut: 220)
+bus echo = delay(3/16, feedback: 0.35, tone: 0.5)
+
+// ---- synths: Surge XT --------------------------------------------------------------------------------
+track bass = plugin("surge", preset: "Basses/Bass 3", duck: 0.6, gain: 7) >> hp(35)
+track pad  = plugin("surge", preset: "Pads/Bright", hall: 0.35, duck: 0.45, gain: -3) >> hp(250)
+track lead = plugin("surge", preset: "Leads/Asymptote", hall: 0.25, echo: 0.25, duck: 0.3, gain: 11) >> hp(300)
+
+// ---- drums: Pulsar's kick, recordings from the open library -----------------------------------------
+track kick  = drums("909", bd_tune: 50, bd_decay: 0.38, bd_gain: -7)
+track clap  = sampler("vcsl:Idiophones/Struck Idiophones/Claps/Clap_rr1.wav", hall: 0.2, gain: 3)
+track hat   = sampler("vcsl:Idiophones/Struck Idiophones/Hi-Hat Cymbal/HiHat_Close_rr1_Mid.wav", pan: 0.2, gain: -3)
+track shaker = sampler("vcsl:Idiophones/Struck Idiophones/Shaker, Large/LShaker_Hit_rr1_Mid.wav", pan: -0.25, gain: -6)
+track tamb  = sampler("vcsl:Idiophones/Struck Idiophones/Tambourine 3 - Legacy/tambourine_up_rr1.wav", pan: 0.3, hall: 0.15, gain: -1)
+
+let prog  = "<Am7 Fmaj7 Dm7 Em7>"
+let roots = "<a1 f1 d2 e2>"
+let bassline = roots.struct("[~ x ~ x] [~ x x ~] [~ x ~ x] [x ~ x ~]").legato(0.7).vel("[.9 .7]*4")
+let melody = "<[a4 ~ c5 e5 ~ d5 c5 ~] [a4 _ _ _ ~ ~ g4 a4] [f5 ~ e5 d5 ~ c5 d5 ~] [e5 _ _ _ ~ ~ ~ ~]>"
+
+section intro 8 {
+  play pad prog.voicing("smooth")
+  play hat "[~ x]*4".vel("[.5 .7]*4") from 4
+  play shaker "x*8".vel("[.6 .35]*4") from 4
+  automate pad.gain -13 -> -3
+}
+section groove 16 {
+  play kick "bd*4"
+  play clap "~ x ~ x"
+  play hat "[~ x]*4".vel("[.55 .8]*4")
+  play shaker "x*8".vel("[.6 .35]*4")
+  play bass bassline
+  play pad prog.voicing("smooth")
+  automate bass.a_filter_1_cutoff 0.35 -> 0.7
+}
+section hook 16 extends groove {
+  play lead melody
+  play tamb "~ ~ ~ x" from 8
+}
+section outro 8 {
+  play kick "bd*4" to 4
+  play pad prog.voicing("smooth")
+  play lead melody to 4
+  play hat "[~ x]*4".vel("[.5 .7]*4") to 6
+  automate master.gain 0 -> -18 from 4
+}
+arrange intro, groove, hook, outro

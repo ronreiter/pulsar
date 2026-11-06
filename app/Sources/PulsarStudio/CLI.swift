@@ -6,7 +6,14 @@ enum CLI {
         if let env = ProcessInfo.processInfo.environment["PULSAR_BIN"], !env.isEmpty { return env }
         if let plist = Bundle.main.object(forInfoDictionaryKey: "PulsarCLI") as? String,
            FileManager.default.isExecutableFile(atPath: plist) { return plist }
-        return FileManager.default.homeDirectoryForCurrentUser.path + "/GitHub/pulsar/.venv/bin/pulsar"
+        // installed with install.sh (uv tool): on the PATH, usually ~/.local/bin
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let path = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        for dir in path + [home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"] {
+            let p = dir + "/pulsar"
+            if FileManager.default.isExecutableFile(atPath: p) { return p }
+        }
+        return home + "/GitHub/pulsar/.venv/bin/pulsar"
     }
 
     struct Result { let status: Int32; let stdout: Data?; let stderr: String }

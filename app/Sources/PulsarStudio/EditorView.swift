@@ -6,6 +6,7 @@ struct EditorView: NSViewRepresentable {
     @Binding var text: String
     var errorLine: Int?
     @Binding var jumpToLine: Int?
+    var onCursor: ((Int) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -105,6 +106,11 @@ struct EditorView: NSViewRepresentable {
             let item = NSMenuItem()
             item.tag = action.rawValue
             tv.performTextFinderAction(item)
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = textView else { return }
+            parent.onCursor?(tv.selectedRange().location)
         }
 
         func textDidChange(_ notification: Notification) {

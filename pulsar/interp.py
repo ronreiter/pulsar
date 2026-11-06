@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 import inspect
+from pathlib import Path
 import math
 from dataclasses import replace as dc_replace
 from fractions import Fraction
@@ -455,6 +456,8 @@ class Interp:
             if len(hits) > 1:
                 raise PulsarError(f"{p!r} is on several effects of {tr.name}; say which, e.g. "
                                   f"{tr.name}.{inst.inserts[hits[0]].name}.{p}", loc)
+            if inst.kind == "plugin":
+                return ["plugin", p]  # checked against the plugin's parameters when it renders
             opts = ["gain", "pan"] + (list(ENGINE_PARAMS.get(inst.engine, {})) if inst.kind == "synth" else [])
             raise PulsarError(f"{tr.name} has no parameter {p!r}", loc, suggest(p, opts))
         if len(path) == 2:
@@ -910,10 +913,13 @@ def b_sampler(interp, path, **kw):
     """Play an audio file. Steps: note names (pitched from `root`), integers
     (slice numbers when `slices` is set) or any other word (play as recorded)."""
     from pathlib import Path as _P
-    p = _P(str(path)).expanduser()
-    if not p.is_absolute():
+
+    from . import library
+    ref = str(path) if library.is_ref(str(path)) else None
+    p = _P(ref.split(":", 1)[1] if ref else str(path)).expanduser()
+    if not ref and not p.is_absolute():
         p = (interp.basedir / p).resolve()
-    if not p.exists():
+    if not ref and not p.exists():
         near = sorted(x.name for x in p.parent.glob("*")) if p.parent.exists() else []
         raise PulsarError(f"sample file not found: {p}", hint=suggest(p.name, near) or
                           "paths are relative to the song file")
@@ -942,7 +948,8 @@ def b_sampler(interp, path, **kw):
     if opts["speed"] <= 0:
         raise PulsarError("sampler speed must be positive (use reverse: true to play backwards)")
     opts["slices"] = int(opts["slices"])
-    opts["path"] = str(p)
+    opts["path"] = None if ref else str(p)
+    opts["ref"] = ref  # a library sound: fetched (once) when the song renders
     octave = int(mixer.pop("octave", 4))
     mix = {"gain": 0.0}
     mix.update(mixer)
@@ -1021,6 +1028,48 @@ def b_accordion(interp, **kw):
     """A sampled Hohner button accordion (CC0): the same player as piano(), with its own release."""
     inst = b_piano_any(interp, "accordion", **kw)
     return inst
+
+
+def b_plugin(interp, name, preset=None, state=None, calibrate=True, **kw):
+    """A VST3 / AU synth: plugin("surge", preset: "Leads/..."), plugin("vital"), plugin("serum"),
+    or a path to a .vst3. Other named settings set the plugin's own parameters (0-1), written
+    in lowercase with underscores: plugin("surge", filter_1_cutoff: 0.4)."""
+    from . import plugins
+    name = str(name)
+    p = Path(name).expanduser()
+    if plugins.key(name) not in plugins.KNOWN and not (p.suffix in (".vst3", ".component") and p.exists()):
+        raise PulsarError(f"no plugin named {name!r}", hint=suggest(plugins.key(name), list(plugins.KNOWN)) or
+                          "use surge, vital, serum, or a path to a .vst3")
+    for k, v in (("preset", preset), ("state", state)):
+        if v is not None and not isinstance(v, str):
+            raise PulsarError(f"plugin {k} takes a string (a name or a file path)")
+    if state is not None:
+        sp = Path(state).expanduser()
+        if not sp.is_absolute():
+            sp = (interp.basedir / sp).resolve()
+        state = str(sp)
+    if not isinstance(calibrate, bool):
+        raise PulsarError("plugin calibrate takes true or false")
+    mixer, params = {}, {}
+    for k, v in kw.items():
+        if k in presets.MIXER_KEYS or k in interp.song.buses:
+            mixer[k] = v
+        elif k == "transpose":
+            params[k] = float(num(v, None, k))
+        else:
+            val = float(num(v, None, k))
+            if not 0 <= val <= 1:
+                raise PulsarError(f"plugin parameter {k} is {val}; plugin parameters are 0-1",
+                                  hint="pulsar plugins params " + plugins.key(name) + " lists them")
+            params[k] = val
+    transpose = params.pop("transpose", 0.0)
+    octave = int(mixer.pop("octave", 4))
+    mix = {"gain": 0.0}
+    mix.update(mixer)
+    return Instrument("plugin", plugins.key(name) if plugins.key(name) in plugins.KNOWN else p.stem, "plugin", {}, {},
+                      False, octave, mix, base_gain=-4.0,
+                      sample={"name": name, "preset": preset, "state": state, "params": params,
+                              "calibrate": calibrate, "transpose": transpose})
 
 
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
@@ -1237,7 +1286,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra, "plugin": b_plugin,
     "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,
