@@ -104,7 +104,23 @@ class Renderer:
         if ret_out is not None:
             master_in += ret_out
         m = self.chain(self.live["master"], master_in)
-        return self.fader(self.live["master"], m)
+        return self.match(self.fader(self.live["master"], m))
+
+    def match(self, x):
+        """A calibration's master corrections, after the master chain: "__eq__" bands
+        [[freq, gain dB, q], ...] (bells, shelves at the ends) and "__width__" (side gain)."""
+        eq = self.trim.get("__eq__") or []
+        if eq:
+            bands = [{"mode": 2 if i == 0 else 5 if i == len(eq) - 1 else 3} for i in range(len(eq))]
+            params = {}
+            for i, (f, g, q) in enumerate(eq):
+                params.update({f"f{i}": f, f"g{i}": g, f"q{i}": q})
+            x = self.fx.process(D.eq8_code(bands), x, params)
+        w = float(self.trim.get("__width__", 1.0))
+        if abs(w - 1) > 1e-4:
+            m, sd = (x[0] + x[1]) / 2, (x[0] - x[1]) / 2 * w
+            x = np.stack([m + sd, m - sd]).astype(np.float32)
+        return x
 
     def _routes_to_track(self, t) -> bool:
         return False

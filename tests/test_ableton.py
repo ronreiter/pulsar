@@ -208,3 +208,17 @@ def test_compact_import_plays_the_same_notes(live_set, tmp_path):
     assert notes(small) == notes(full)
     src = small.read_text()
     assert "let lead_1 = " in src and src.count("play lead lead_1") == 2  # one loop, used by both sections
+
+
+def test_calibration_master_eq_and_width(live_set):
+    s = als.read(live_set)
+    plain = Renderer(s, {}, 4.0, log=lambda m: None).render()
+    cal = {"__eq__": [[40, 0, 0.7], [440, 6, 1.0], [10000, 0, 0.7]], "__width__": 1.0}
+    louder = Renderer(s, {}, 4.0, log=lambda m: None, trim=cal).render()
+    w = slice(int(2.5 * SR), int(3.5 * SR))
+    gain = 20 * np.log10(np.abs(louder[0, w]).max() / np.abs(plain[0, w]).max())
+    assert abs(gain - 6) < 0.4  # the 440 Hz tone gets the 440 Hz bell's +6 dB
+    st = np.stack([plain[0], plain[0] * 0.5])
+    r = Renderer(s, {}, 4.0, log=lambda m: None, trim={"__width__": 0.0})
+    mono = r.match(st)
+    assert np.allclose(mono[0], mono[1])  # width 0 folds to mono
