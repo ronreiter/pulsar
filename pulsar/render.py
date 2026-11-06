@@ -658,11 +658,14 @@ class Renderer:
         notes = {}
         for name, tr in self.song.tracks.items():
             if tr.inst.kind == "ableton":
+                audio = tr.inst.sample.get("audio")  # an audio track's hits start its clip; no pitch
                 notes.setdefault(tr.inst.sample["track"], []).extend(
-                    (n.time, n.dur, n.pitch, n.vel) for n in self.score.notes.get(name, []) if n.pitch is not None)
+                    (n.time, n.dur, None if audio else n.pitch, n.vel) for n in self.score.notes.get(name, [])
+                    if audio or n.pitch is not None)
+        include = set(notes) if cfg.get("tracks") == "declared" else None
         seconds = self.length_samples(OUT_SR) / OUT_SR
         self.log(f"  rendering the Ableton set {Path(cfg['path']).name} ({len(live['tracks'])} tracks)")
-        mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim).render()
+        mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim, include=include).render()
         from .dsp.master import limit
         mix, _ = limit(mix.astype(np.float32), OUT_SR, self.song.ceiling)  # a true-peak safety net
         info = {"tracks": {k: {"notes": len(v)} for k, v in notes.items()}, "seconds": round(seconds, 2),

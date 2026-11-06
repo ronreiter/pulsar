@@ -1072,17 +1072,25 @@ def b_plugin(interp, name, preset=None, state=None, calibrate=True, **kw):
                               "calibrate": calibrate, "transpose": transpose})
 
 
-def b_ableton_set(interp, path, calibration=None):
+def b_ableton_set(interp, path, calibration=None, tracks="all"):
     """Tie this song to an Ableton Live set: tracks made with ableton_track() play that set's
     instruments, device chains and mix (groups, sends, sidechains, master), with the notes written
-    here. calibration: an optional JSON of per-track dB corrections (from matching a reference)."""
+    here. calibration: an optional JSON of per-track dB corrections (from matching a reference).
+    tracks: "all" also plays the set's own audio clips; "declared" plays only the tracks named with
+    ableton_track(), so the set is just a sound palette for a song of your own."""
     def resolve(x):
         q = Path(str(x)).expanduser()
         q = q if q.is_absolute() else (interp.basedir / q).resolve()
         if not q.exists():
             raise PulsarError(f"file not found: {q}")
         return str(q)
-    interp.song.ableton = {"path": resolve(path), "calibration": resolve(calibration) if calibration else None}
+    if tracks not in ("all", "declared"):
+        raise PulsarError('ableton_set(tracks: ...) is "all" or "declared"')
+    from .ableton import als
+    p = resolve(path)
+    kinds = {t["name"]: t["kind"] for t in als.read(p)["tracks"]}
+    interp.song.ableton = {"path": p, "calibration": resolve(calibration) if calibration else None,
+                           "tracks": tracks, "kinds": kinds}
     return None
 
 
@@ -1090,8 +1098,13 @@ def b_ableton_track(interp, name):
     """A track that plays the Ableton set's track `name` (its instrument and device chain)."""
     if interp.song.ableton is None:
         raise PulsarError("ableton_track() needs ableton_set(\"file.als\") first")
+    kinds = interp.song.ableton.get("kinds") or {}
+    if kinds and str(name) not in kinds:
+        raise PulsarError(f"the Ableton set has no track {name!r}; it has: " + ", ".join(kinds))
+    # an audio track is played like a sample: "x" in a pattern starts its clip
+    audio = kinds.get(str(name)) == "audio"
     return Instrument("ableton", str(name), "ableton", {}, {}, False, 4, {"gain": 0.0}, base_gain=0.0,
-                      sample={"track": str(name)})
+                      sample={"track": str(name), "audio": audio})
 
 
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}

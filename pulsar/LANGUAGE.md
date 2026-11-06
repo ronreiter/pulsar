@@ -324,6 +324,18 @@ emulations built from their stored settings rather than bit-exact copies; compar
 render from Live (`pulsar compare`) and pass per-track dB corrections with
 `ableton_set("project.als", calibration: "corrections.json")` if you need a closer match.
 
+**A set as a sound palette.** To write your own song with a set's sounds and mix, pass
+`tracks: "declared"`: only the tracks you name with `ableton_track()` make sound, and the set's
+own audio clips (vocals, loops) stay out. An audio track plays like a sample, so `"x"` starts its
+clip: a looping clip plays for the note's length, a one-shot plays out until the next hit.
+
+```
+ableton_set("project.als", tracks: "declared")
+track bass   = ableton_track("Bassline")
+track shaker = ableton_track("Shaker Loop")
+section groove 8 { play bass "a1 ~ a1 ~ c2 ~ g1 ~"  play shaker "x" }
+```
+
 ## Samples
 
 **The open sound library.** `sampler()` also takes a library reference instead of a file:

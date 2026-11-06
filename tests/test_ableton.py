@@ -222,3 +222,32 @@ def test_calibration_master_eq_and_width(live_set):
     r = Renderer(s, {}, 4.0, log=lambda m: None, trim={"__width__": 0.0})
     mono = r.match(st)
     assert np.allclose(mono[0], mono[1])  # width 0 folds to mono
+
+
+def _render(src, path):
+    from pulsar.render import Renderer as SongRenderer
+    song, _ = run(src, str(path))
+    return SongRenderer(compile_song(song), log=lambda m: None).render_ableton().mix
+
+
+def test_declared_tracks_leave_the_sets_own_clips_out(live_set, tmp_path):
+    p = tmp_path / "mine.pulse"
+    base = f'tempo 120\nableton_set("{live_set}"OPTS)\ntrack lead = ableton_track("Lead")\nsection a 2 {{ play lead "a4" }}\narrange a\n'
+    every = _render(base.replace("OPTS", ""), p)
+    mine = _render(base.replace("OPTS", ', tracks: "declared"'), p)
+    w = slice(int(2.5 * SR), int(3.5 * SR))
+    assert np.abs(every[:, w]).max() > 0.05      # "all": the Tone track's own clip plays at beat 4
+    assert np.abs(mine[:, w]).max() < 1e-4       # "declared": only Lead (no instrument), so silence
+    with pytest.raises(Exception, match="no track"):
+        run(f'ableton_set("{live_set}")\ntrack x = ableton_track("Nope")\n', str(p))
+
+
+def test_patterns_trigger_an_audio_tracks_clip(live_set, tmp_path):
+    p = tmp_path / "hits.pulse"
+    src = (f'tempo 120\nableton_set("{live_set}", tracks: "declared")\ntrack tone = ableton_track("Tone")\n'
+           'section a 1 { play tone "~ x ~ ~" }\narrange a\n')
+    y = _render(src, p)
+    # the hit is at beat 1 (0.5 s); the tone's clip plays from its start through Utility and the group
+    assert np.abs(y[:, :int(0.45 * SR)]).max() < 1e-4
+    level = np.abs(y[0, int(0.7 * SR):int(1.2 * SR)]).max()
+    assert abs(20 * np.log10(level / 0.5) + 12.0) < 0.5
