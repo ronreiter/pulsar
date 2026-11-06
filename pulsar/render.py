@@ -647,8 +647,9 @@ class Renderer:
 
     # -- Ableton sets ------------------------------------------------------------------
 
-    def render_ableton(self) -> RenderResult:
-        """The song's notes played through its Ableton set: instruments, devices, mix and master."""
+    def render_ableton(self, extra: np.ndarray | None = None) -> RenderResult:
+        """The song's notes played through its Ableton set: instruments, devices, mix and master.
+        extra: the song's own (non-Ableton) tracks, already mixed; they join the set's master chain."""
         from .ableton import als
         from .ableton.engine import Renderer as LiveRenderer
         t0 = time.time()
@@ -672,7 +673,7 @@ class Renderer:
         seconds = self.length_samples(OUT_SR) / OUT_SR
         self.log(f"  rendering the Ableton set {Path(cfg['path']).name} ({len(live['tracks'])} tracks)")
         mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim, include=include,
-                           freeze=cfg.get("freeze")).render()
+                           freeze=cfg.get("freeze"), extra=extra).render()
         from .dsp.master import limit
         mix, _ = limit(mix.astype(np.float32), OUT_SR, self.song.ceiling)  # a true-peak safety net
         info = {"tracks": {k: {"notes": len(v)} for k, v in notes.items()}, "seconds": round(seconds, 2),
@@ -984,16 +985,17 @@ class Renderer:
         return sum(nt.dur + rel for nt in notes) * (1 + uni)
 
     def render(self, want_stems=False, jobs: int | None = None) -> RenderResult:
-        if self.song.ableton:
+        own = [n for n in self.song.tracks if self.song.tracks[n].inst.kind != "ableton" and self.score.notes.get(n)]
+        if self.song.ableton and not own:
             return self.render_ableton()
         t0 = time.time()
         n = self.length_samples(OUT_SR)
         mix = np.zeros((2, n), np.float32)
         buses = {name: np.zeros((2, n), np.float32) for name in self.song.buses}
         stems, info = {}, {"tracks": {}}
-        active = [name for name in self.song.tracks if self.score.notes.get(name)]
+        active = own  # the Ableton set's tracks are rendered by the set (render_ableton)
         for name in self.song.tracks:
-            if name not in active:
+            if name not in active and self.song.tracks[name].inst.kind != "ableton":
                 info["tracks"][name] = {"notes": 0}
         # Fetch stock recordings here, once, before any worker needs them; keep who made them.
         credits = []
@@ -1073,6 +1075,12 @@ class Renderer:
             mix += sig
             if want_stems:
                 stems[f"bus_{bus}"] = sig
+        if self.song.ableton:  # the song's own tracks join the set's mix, before its master chain
+            res = self.render_ableton(extra=mix)
+            res.info["tracks"] = {**info["tracks"], **res.info["tracks"]}
+            res.info["credits"] = credits + res.info.get("credits", [])
+            res.stems.update(stems)
+            return res
         for eff in self.song.master:
             mix = self.apply_effect(eff, mix)[:, :n]
         master_autos = {k[1][0]: v for k, v in self.score.autos.items() if k[0] == "master"}

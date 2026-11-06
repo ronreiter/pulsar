@@ -214,7 +214,7 @@ def write_compact(set_path: str | Path, out: str | Path, calibration: str | Path
         bars = Fraction(b1 - b0).limit_denominator(64) / 4
         body = plays[sname]
         if len(body) <= 2:
-            lines.append(f"section {sname} {_fmt(bars)} {{ " + "  ".join(body) + " }")
+            lines.append(f"section {sname} {_fmt(bars)} {{ " + "; ".join(body) + " }")
         else:
             lines += [f"section {sname} {_fmt(bars)} {{"] + [f"  {b}" for b in body] + ["}"]
     lines += ["", "arrange " + ", ".join(s for s, _, _ in secs)]
