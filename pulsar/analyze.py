@@ -281,7 +281,7 @@ def format_report(rep: dict) -> str:
     if rep.get("tracks"):
         lines.append("tracks (post-fader):")
         for k, v in rep["tracks"].items():
-            if v.get("notes"):
+            if v.get("notes") and "peak_db" in v:  # tracks rendered inside an imported set have no stems
                 b = v.get("bands", {})
                 main = max(b, key=b.get) if b else "?"
                 lines.append(f"  {k:<10} peak {v['peak_db']:>6} dB  rms {v['rms_db']:>6} dB  {v['notes']:>4} notes"

@@ -186,3 +186,25 @@ def test_import_round_trip(live_set, tmp_path):
     song, _ = run(src, str(out))
     sc = compile_song(song)
     assert sc.total_bars == 2 and [n.pitch for n in sc.notes["lead"]] == [69.0] * 8
+
+
+def test_cli_render_of_an_imported_set(live_set, tmp_path):
+    # the whole command, mix report included (it crashed on tracks rendered inside a set)
+    import subprocess, sys
+    from pulsar.ableton.importer import write_pulse
+    song = write_pulse(live_set, tmp_path / "song.pulse")
+    r = subprocess.run([sys.executable, "-m", "pulsar", "render", str(song), "-o", str(tmp_path / "out.wav")],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-800:]
+    assert (tmp_path / "out.wav").exists() and "loudness" in r.stdout
+
+
+def test_compact_import_plays_the_same_notes(live_set, tmp_path):
+    from pulsar.ableton.importer import write_pulse
+    full = write_pulse(live_set, tmp_path / "full.pulse", compact=False)
+    small = write_pulse(live_set, tmp_path / "small.pulse", compact=True)
+    notes = lambda p: [(round(n.time, 6), round(n.dur, 6), n.pitch, round(n.vel, 2))
+                       for n in compile_song(run(p.read_text(), str(p))[0]).notes["lead"]]
+    assert notes(small) == notes(full)
+    src = small.read_text()
+    assert "let lead_1 = " in src and src.count("play lead lead_1") == 2  # one loop, used by both sections

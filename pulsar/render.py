@@ -663,6 +663,8 @@ class Renderer:
         seconds = self.length_samples(OUT_SR) / OUT_SR
         self.log(f"  rendering the Ableton set {Path(cfg['path']).name} ({len(live['tracks'])} tracks)")
         mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim).render()
+        from .dsp.master import limit
+        mix, _ = limit(mix.astype(np.float32), OUT_SR, self.song.ceiling)  # a true-peak safety net
         info = {"tracks": {k: {"notes": len(v)} for k, v in notes.items()}, "seconds": round(seconds, 2),
                 "render_seconds": round(time.time() - t0, 1), "credits": []}
         return RenderResult(mix.astype(np.float32), OUT_SR, {}, info)
