@@ -19,6 +19,7 @@ final class StudioModel: ObservableObject {
     @Published var jumpToLine: Int?
     /// Where the editor's cursor is (UTF-16 offset); not published, so typing doesn't redraw everything.
     var cursorOffset = 0
+    private var autoplayed = false
     @Published var pixelsPerBar: CGFloat = 26
     /// Vertical zoom: multiplies every lane's height (notes and drum rows stretch with it).
     @Published var laneScale: CGFloat = 1
@@ -113,6 +114,12 @@ final class StudioModel: ObservableObject {
             if s.ok {
                 score = s
                 error = nil
+                // PULSAR_AUTOPLAY=<song path>: start playing that song as soon as it compiles (once)
+                if let want = ProcessInfo.processInfo.environment["PULSAR_AUTOPLAY"], !autoplayed,
+                   fileURL?.standardizedFileURL.path == URL(fileURLWithPath: want).standardizedFileURL.path {
+                    autoplayed = true
+                    play()
+                }
             } else {
                 error = s.error
             }

@@ -20,8 +20,9 @@ SR = D.SR
 class Automation:
     """Every automation envelope of the set, by automation-target id, as per-sample arrays."""
 
-    def __init__(self, envelopes: list[dict], tempo: float, n: int):
-        self.tempo, self.n = tempo, n
+    def __init__(self, envelopes: list[dict], tempo: float, n: int, freeze: float | None = None):
+        """freeze: hold every envelope at its value at this beat (the set as a fixed sound palette)."""
+        self.tempo, self.n, self.freeze = tempo, n, freeze
         self.by_id = {}
         for e in envelopes:
             if e["target"] and e["points"]:
@@ -35,6 +36,9 @@ class Automation:
         pts = sorted(pts)
         t = np.array([max(0.0, p[0]) * 60.0 / self.tempo for p in pts])
         v = np.array([p[1] for p in pts], dtype=np.float64)
+        if self.freeze is not None:
+            at = self.freeze * 60.0 / self.tempo
+            return np.full(self.n, np.interp(at, t, v), np.float32)
         x = np.arange(self.n) / SR
         return np.interp(x, t, v).astype(np.float32)
 
@@ -45,17 +49,25 @@ def _val(dev, path, default=0.0):
 
 
 class Renderer:
-    def __init__(self, live: dict, notes: dict[str, list], seconds: float, log=print, trim: dict | None = None):
-        """`notes`: Ableton track name -> [(time s, dur s, midi key, velocity 0-1)] from the Pulsar song."""
+    def __init__(self, live: dict, notes: dict[str, list], seconds: float, log=print, trim: dict | None = None,
+                 include: set | None = None, freeze: float | None = None, extra: np.ndarray | None = None):
+        """`notes`: Ableton track name -> [(time s, dur s, midi key, velocity 0-1)] from the Pulsar song;
+        for an audio track the key is None and each note starts the track's clip (a hit).
+        `include`: only these tracks make sound (groups, returns and the master still process them);
+        None plays every track, audio tracks with their own clips.
+        `freeze`: a beat of the set; every automated parameter holds its value there.
+        `extra`: more audio (the Pulsar song's own tracks) summed in before the master chain."""
         self.live = live
         self.tempo = live["tempo"]
         self.notes = notes
         self.n = int(seconds * SR)
         self.log = log
         envs = [e for t in live["tracks"] + live["returns"] + [live["master"]] for e in t["envelopes"]]
-        self.auto = Automation(envs, self.tempo, self.n)
+        self.auto = Automation(envs, self.tempo, self.n, freeze)
         self.post: dict[str, np.ndarray] = {}  # track id -> post-effects audio (for sidechains)
         self.trim = trim or {}  # track name -> extra fader dB (calibration against a reference)
+        self.include = include
+        self.extra = extra
         self._fx = None
 
     # -- the graph --------------------------------------------------------------------------
@@ -103,8 +115,27 @@ class Renderer:
                 break
         if ret_out is not None:
             master_in += ret_out
+        if self.extra is not None:
+            k = min(self.n, self.extra.shape[1])
+            master_in[:, :k] += self.extra[:, :k].astype(np.float32)
         m = self.chain(self.live["master"], master_in)
-        return self.fader(self.live["master"], m)
+        return self.match(self.fader(self.live["master"], m))
+
+    def match(self, x):
+        """A calibration's master corrections, after the master chain: "__eq__" bands
+        [[freq, gain dB, q], ...] (bells, shelves at the ends) and "__width__" (side gain)."""
+        eq = self.trim.get("__eq__") or []
+        if eq:
+            bands = [{"mode": 2 if i == 0 else 5 if i == len(eq) - 1 else 3} for i in range(len(eq))]
+            params = {}
+            for i, (f, g, q) in enumerate(eq):
+                params.update({f"f{i}": f, f"g{i}": g, f"q{i}": q})
+            x = self.fx.process(D.eq8_code(bands), x, params)
+        w = float(self.trim.get("__width__", 1.0))
+        if abs(w - 1) > 1e-4:
+            m, sd = (x[0] + x[1]) / 2, (x[0] - x[1]) / 2 * w
+            x = np.stack([m + sd, m - sd]).astype(np.float32)
+        return x
 
     def _routes_to_track(self, t) -> bool:
         return False
@@ -154,7 +185,13 @@ class Renderer:
     # -- instruments and clips ----------------------------------------------------------------
 
     def track_audio(self, t) -> np.ndarray:
-        if t["kind"] == "audio":
+        bus = t["kind"] == "audio" and not t["audio_clips"] and t["devices"]  # e.g. a "Sends" bus track
+        if self.include is not None and t["name"] not in self.include and not bus:
+            self.post[t["id"]] = np.zeros((2, self.n), np.float32)
+            return self.post[t["id"]]
+        if t["kind"] == "audio" and t["name"] in self.notes:
+            x = self.audio_clips(t, self.hits(t, self.notes[t["name"]]))
+        elif t["kind"] == "audio":
             x = self.audio_clips(t)
         else:
             x = self.instrument(t["devices"], self.notes.get(t["name"], []), t)
@@ -163,23 +200,50 @@ class Renderer:
         self.post[t["id"]] = y
         return y
 
-    def audio_clips(self, t) -> np.ndarray:
+    def hits(self, t, notes) -> list[dict]:
+        """Clips that start the track's first clip at each hit. A looping clip plays for the note's
+        length; a one-shot plays out until the next hit. Velocity scales it (0.8 is as recorded)."""
+        live = [c for c in t["audio_clips"] if not c["disabled"] and c["sample"]]
+        if not live:
+            return []
+        spb = 60.0 / self.tempo
+        base = live[0]
+        whole = (base["end"] - base["start"])
+        starts = sorted(n[0] / spb for n in notes)
+        out = []
+        for (t0, dur, _, vel) in sorted(notes, key=lambda n: n[0]):
+            b0 = t0 / spb
+            if base["looping"]:
+                b1 = b0 + dur / spb
+            else:
+                nxt = [s for s in starts if s > b0 + 1e-6]
+                b1 = min([b0 + whole] + nxt[:1])
+            c = dict(base, start=b0, end=b1, start_rel=base["start_rel"] if base["looping"] else 0.0,
+                     gain_db=base["gain_db"] + 20 * math.log10(max(vel, 1e-3) / 0.8))
+            out.append(c)
+        return out
+
+    def audio_clips(self, t, clips=None) -> np.ndarray:
         import soundfile as sf
         from math import gcd
 
         from scipy.signal import resample_poly
         out = np.zeros((2, self.n), np.float32)
         spb = 60.0 / self.tempo
-        for c in t["audio_clips"]:
+        for c in t["audio_clips"] if clips is None else clips:
             if c["disabled"] or not c["sample"] or not Path(c["sample"]).exists():
                 continue
-            x, sr = sf.read(c["sample"], always_2d=True, dtype="float32")
-            x = x.T if x.shape[1] <= 2 else x.T[:2]
-            if x.shape[0] == 1:
-                x = np.repeat(x, 2, axis=0)
-            if sr != SR:
-                g = gcd(SR, sr)
-                x = resample_poly(x, SR // g, sr // g, axis=1).astype(np.float32)
+            cache = self.__dict__.setdefault("_wav", {})
+            if c["sample"] not in cache:
+                x, sr = sf.read(c["sample"], always_2d=True, dtype="float32")
+                x = x.T if x.shape[1] <= 2 else x.T[:2]
+                if x.shape[0] == 1:
+                    x = np.repeat(x, 2, axis=0)
+                if sr != SR:
+                    g = gcd(SR, sr)
+                    x = resample_poly(x, SR // g, sr // g, axis=1).astype(np.float32)
+                cache[c["sample"]] = x
+            x = cache[c["sample"]]
             # where in the sample the clip starts: warped clips count in beats, unwarped in seconds
             unit = spb if c["warped"] else 1.0
             offset = (c["loop_start"] + c["start_rel"]) * unit

@@ -213,7 +213,7 @@ damper noise) sound as a real piano's do.
 ```
 track keys   = piano("grand", pedal: 0.4, hall: 0.4)
 track melody = piano("grand", pedal: 0.6, gain: 3)
-section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8)  play melody "<[a5 _ f#5 _] d5>" }
+section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8); play melody "<[a5 _ f#5 _] d5>" }
 ```
 
 | setting | meaning |
@@ -323,6 +323,32 @@ sends, returns and the master chain. Live's own DSP is proprietary, so its devic
 emulations built from their stored settings rather than bit-exact copies; compare against a
 render from Live (`pulsar compare`) and pass per-track dB corrections with
 `ableton_set("project.als", calibration: "corrections.json")` if you need a closer match.
+
+**A set as a sound palette.** To write your own song with a set's sounds and mix, pass
+`tracks: "declared"`: only the tracks you name with `ableton_track()` make sound, and the set's
+own audio clips (vocals, loops) stay out. An audio track plays like a sample, so `"x"` starts its
+clip: a looping clip plays for the note's length, a one-shot plays out until the next hit. A
+track the set only ever plays on one note (a drum) takes `"x"` too, which plays that note.
+
+The set's automation belongs to its own arrangement, so in this mode it holds still: every
+automated parameter keeps its value from the middle of the set's longest section, or of the
+section named by `sound_at: "Drop"` (a locator name, or a beat number).
+
+`ableton_track(name, octave: 3, gain: -2)`: `octave` is where chord symbols and notes without an
+octave land (patches are often transposed, so check where the set itself plays them), and `gain`
+is dB on top of the set's fader.
+
+```
+ableton_set("project.als", tracks: "declared", sound_at: "Drop")
+track kick   = ableton_track("Kick")
+track bass   = ableton_track("Bassline", octave: 4)
+track shaker = ableton_track("Shaker Loop")
+section groove 8 { play kick "x*4"; play bass "<c ab f g>".struct("[~ x x x]*4"); play shaker "x" }
+```
+
+Pulsar's own tracks (`synth()`, `voice()`, `sampler()`, `ambience()`, ...) can play alongside the
+set's: they render with their own effects and buses, then join the set's mix in front of its
+master chain, so the set's master glues everything together.
 
 ## Generated sounds (Stable Audio 3, local)
 
@@ -437,7 +463,7 @@ the usual), not what.
 ```
 track birds = ambience("dawn chorus", fade: 8, gain: -1) >> hp(300)
 track water = ambience("water trickle", license: "cc0", width: 1.2) >> hp(160) >> lp(9000)
-section intro 8 { play birds "x"  play water "x" }
+section intro 8 { play birds "x"; play water "x" }
 ```
 
 `pulsar sounds "rain on leaves"` lists the candidates (length, license, author, page); pin

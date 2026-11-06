@@ -336,7 +336,7 @@ def cmd_import_ableton(args):
 
     out = Path(args.output or Path(args.set).with_suffix(".pulse").name)
     try:
-        write_pulse(args.set, out, args.calibration)
+        write_pulse(args.set, out, args.calibration, compact=not args.full)
     except (PulsarError, OSError, KeyError) as e:
         print(f"error: {getattr(e, 'msg', e)}", file=sys.stderr)
         return 1
@@ -536,6 +536,7 @@ def main(argv=None):
     ia.add_argument("set")
     ia.add_argument("-o", "--output")
     ia.add_argument("--calibration", help="a JSON of per-track dB corrections to apply when rendering")
+    ia.add_argument("--full", action="store_true", help="write every note of every section instead of compact loops")
     ia.set_defaults(fn=cmd_import_ableton)
     gn = sub.add_parser("generate", help="make a sound effect or texture locally with Stable Audio 3")
     gn.add_argument("prompt", nargs="?")

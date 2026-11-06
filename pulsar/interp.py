@@ -1072,26 +1072,69 @@ def b_plugin(interp, name, preset=None, state=None, calibrate=True, **kw):
                               "calibrate": calibrate, "transpose": transpose})
 
 
-def b_ableton_set(interp, path, calibration=None):
+def b_ableton_set(interp, path, calibration=None, tracks="all", sound_at=None):
     """Tie this song to an Ableton Live set: tracks made with ableton_track() play that set's
     instruments, device chains and mix (groups, sends, sidechains, master), with the notes written
-    here. calibration: an optional JSON of per-track dB corrections (from matching a reference)."""
+    here. calibration: an optional JSON of per-track dB corrections (from matching a reference).
+    tracks: "all" also plays the set's own audio clips; "declared" plays only the tracks named with
+    ableton_track(), so the set is just a sound palette for a song of your own. Its automation then
+    holds still, at its value in the middle of the set's longest section, or of the section (locator)
+    named by sound_at: (a beat number works too)."""
     def resolve(x):
         q = Path(str(x)).expanduser()
         q = q if q.is_absolute() else (interp.basedir / q).resolve()
         if not q.exists():
             raise PulsarError(f"file not found: {q}")
         return str(q)
-    interp.song.ableton = {"path": resolve(path), "calibration": resolve(calibration) if calibration else None}
+    if tracks not in ("all", "declared"):
+        raise PulsarError('ableton_set(tracks: ...) is "all" or "declared"')
+    from .ableton import als
+    p = resolve(path)
+    live = als.read(p)
+    kinds, hits = {}, {}
+    for t in live["tracks"]:
+        kinds[t["name"]] = t["kind"]
+        if t["kind"] == "midi":
+            keys = {k for _, _, k, _ in als.arrangement_notes(t["midi_clips"], live["tempo"])}
+            if len(keys) == 1:  # a one-note track (a drum): "x" plays that note
+                hits[t["name"]] = float(keys.pop())
+    freeze = None
+    if tracks == "declared":
+        from .ableton.importer import sections
+        secs = sections(live)
+        names = {}  # locator name -> its first section's (start, end) beats
+        for (b0, nm), (b1, _) in zip(live["locators"], live["locators"][1:] + [(live["length_beats"], None)]):
+            names.setdefault(nm.lower(), (b0, b1))
+        if isinstance(sound_at, (int, float)) and not isinstance(sound_at, bool):
+            freeze = float(sound_at)
+        elif sound_at is not None:
+            if str(sound_at).lower() not in names:
+                raise PulsarError(f"the set has no section {sound_at!r}; it has: "
+                                  + ", ".join(nm for _, nm in live["locators"]))
+            b0, b1 = names[str(sound_at).lower()]
+            freeze = (b0 + b1) / 2
+        elif secs:
+            _, b0, b1 = max(secs, key=lambda s: s[2] - s[1])
+            freeze = (b0 + b1) / 2
+    interp.song.ableton = {"path": p, "calibration": resolve(calibration) if calibration else None,
+                           "tracks": tracks, "kinds": kinds, "hits": hits, "freeze": freeze}
     return None
 
 
-def b_ableton_track(interp, name):
-    """A track that plays the Ableton set's track `name` (its instrument and device chain)."""
+def b_ableton_track(interp, name, octave=4, gain=0.0):
+    """A track that plays the Ableton set's track `name` (its instrument and device chain).
+    octave: where chord symbols, scale degrees and notes without an octave land.
+    gain: dB on top of the set's fader for that track."""
     if interp.song.ableton is None:
         raise PulsarError("ableton_track() needs ableton_set(\"file.als\") first")
-    return Instrument("ableton", str(name), "ableton", {}, {}, False, 4, {"gain": 0.0}, base_gain=0.0,
-                      sample={"track": str(name)})
+    kinds = interp.song.ableton.get("kinds") or {}
+    if kinds and str(name) not in kinds:
+        raise PulsarError(f"the Ableton set has no track {name!r}; it has: " + ", ".join(kinds))
+    # an audio track is played like a sample: "x" in a pattern starts its clip
+    audio = kinds.get(str(name)) == "audio"
+    hit = (interp.song.ableton.get("hits") or {}).get(str(name))
+    return Instrument("ableton", str(name), "ableton", {}, {}, False, int(octave), {"gain": float(gain)}, base_gain=0.0,
+                      sample={"track": str(name), "audio": audio, "hit": hit})
 
 
 def b_generate(interp, prompt, model="sfx", seconds=4, seed=0):

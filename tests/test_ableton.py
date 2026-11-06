@@ -186,3 +186,91 @@ def test_import_round_trip(live_set, tmp_path):
     song, _ = run(src, str(out))
     sc = compile_song(song)
     assert sc.total_bars == 2 and [n.pitch for n in sc.notes["lead"]] == [69.0] * 8
+
+
+def test_cli_render_of_an_imported_set(live_set, tmp_path):
+    # the whole command, mix report included (it crashed on tracks rendered inside a set)
+    import subprocess, sys
+    from pulsar.ableton.importer import write_pulse
+    song = write_pulse(live_set, tmp_path / "song.pulse")
+    r = subprocess.run([sys.executable, "-m", "pulsar", "render", str(song), "-o", str(tmp_path / "out.wav")],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-800:]
+    assert (tmp_path / "out.wav").exists() and "loudness" in r.stdout
+
+
+def test_compact_import_plays_the_same_notes(live_set, tmp_path):
+    from pulsar.ableton.importer import write_pulse
+    full = write_pulse(live_set, tmp_path / "full.pulse", compact=False)
+    small = write_pulse(live_set, tmp_path / "small.pulse", compact=True)
+    notes = lambda p: [(round(n.time, 6), round(n.dur, 6), n.pitch, round(n.vel, 2))
+                       for n in compile_song(run(p.read_text(), str(p))[0]).notes["lead"]]
+    assert notes(small) == notes(full)
+    src = small.read_text()
+    assert "let lead_1 = " in src and src.count("play lead lead_1") == 2  # one loop, used by both sections
+
+
+def test_calibration_master_eq_and_width(live_set):
+    s = als.read(live_set)
+    plain = Renderer(s, {}, 4.0, log=lambda m: None).render()
+    cal = {"__eq__": [[40, 0, 0.7], [440, 6, 1.0], [10000, 0, 0.7]], "__width__": 1.0}
+    louder = Renderer(s, {}, 4.0, log=lambda m: None, trim=cal).render()
+    w = slice(int(2.5 * SR), int(3.5 * SR))
+    gain = 20 * np.log10(np.abs(louder[0, w]).max() / np.abs(plain[0, w]).max())
+    assert abs(gain - 6) < 0.4  # the 440 Hz tone gets the 440 Hz bell's +6 dB
+    st = np.stack([plain[0], plain[0] * 0.5])
+    r = Renderer(s, {}, 4.0, log=lambda m: None, trim={"__width__": 0.0})
+    mono = r.match(st)
+    assert np.allclose(mono[0], mono[1])  # width 0 folds to mono
+
+
+def _render(src, path):
+    from pulsar.render import Renderer as SongRenderer
+    song, _ = run(src, str(path))
+    return SongRenderer(compile_song(song), log=lambda m: None).render_ableton().mix
+
+
+def test_declared_tracks_leave_the_sets_own_clips_out(live_set, tmp_path):
+    p = tmp_path / "mine.pulse"
+    base = f'tempo 120\nableton_set("{live_set}"OPTS)\ntrack lead = ableton_track("Lead")\nsection a 2 {{ play lead "a4" }}\narrange a\n'
+    every = _render(base.replace("OPTS", ""), p)
+    mine = _render(base.replace("OPTS", ', tracks: "declared"'), p)
+    w = slice(int(2.5 * SR), int(3.5 * SR))
+    assert np.abs(every[:, w]).max() > 0.05      # "all": the Tone track's own clip plays at beat 4
+    assert np.abs(mine[:, w]).max() < 1e-4       # "declared": only Lead (no instrument), so silence
+    with pytest.raises(Exception, match="no track"):
+        run(f'ableton_set("{live_set}")\ntrack x = ableton_track("Nope")\n', str(p))
+
+
+def test_patterns_trigger_an_audio_tracks_clip(live_set, tmp_path):
+    p = tmp_path / "hits.pulse"
+    src = (f'tempo 120\nableton_set("{live_set}", tracks: "declared")\ntrack tone = ableton_track("Tone")\n'
+           'section a 1 { play tone "~ x ~ ~" }\narrange a\n')
+    y = _render(src, p)
+    # the hit is at beat 1 (0.5 s); the tone's clip plays from its start through Utility and the group
+    assert np.abs(y[:, :int(0.45 * SR)]).max() < 1e-4
+    level = np.abs(y[0, int(0.7 * SR):int(1.2 * SR)]).max()
+    assert abs(20 * np.log10(level / 0.5) + 12.0) < 0.5
+
+
+def test_palette_hits_and_frozen_automation(live_set, tmp_path):
+    p = tmp_path / "x.pulse"
+    song, _ = run(f'ableton_set("{live_set}", tracks: "declared", sound_at: "Main")\n'
+                  'track lead = ableton_track("Lead")\nsection a 1 { play lead "x ~ x ~" }\narrange a\n', str(p))
+    assert song.ableton["freeze"] == 6.0             # the middle of the "Main" section (beats 4-8)
+    notes = compile_song(song).notes["lead"]
+    assert len(notes) == 2 and song.tracks["lead"].inst.sample["hit"] == 69.0  # "x" is Lead's one note
+    from pulsar.ableton.engine import Automation
+    a = Automation([{"target": "1", "points": [(0, 0.0), (4, 1.0)]}], 120, SR * 2, freeze=2)
+    assert np.allclose(a.curve("1", None), 0.5)      # held at its value on beat 2
+
+
+def test_a_songs_own_tracks_play_with_the_set(live_set, tmp_path):
+    from pulsar.render import Renderer as SongRenderer
+    p = tmp_path / "both.pulse"
+    src = (f'tempo 120\nableton_set("{live_set}", tracks: "declared")\ntrack lead = ableton_track("Lead")\n'
+           'track warm = synth("sub")\nsection a 2 { play lead "a4"; play warm "a2" }\narrange a\n')
+    song, _ = run(src, str(p))
+    res = SongRenderer(compile_song(song), log=lambda m: None).render()
+    # Lead has no instrument and Tone is left out, so everything heard is the Pulsar synth
+    assert np.abs(res.mix).max() > 0.05 and "warm" in res.info["tracks"]
