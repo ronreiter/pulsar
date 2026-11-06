@@ -269,18 +269,26 @@ JUCE_TRAILER = b"\0" * 16 + b"JUCEPrivateData"
 
 
 def juce_b64encode(data: bytes) -> str:
-    """JUCE MemoryBlock::toBase64Encoding: '<size>.' then 6 bits per character, least significant first."""
-    bits = int.from_bytes(data, "little")
+    """JUCE MemoryBlock::toBase64Encoding: '<size>.' then 6 bits per character, least significant first.
+    Three bytes are exactly four characters, so it runs group by group (linear time)."""
     n = (len(data) * 8 + 5) // 6
-    return f"{len(data)}." + "".join(JUCE_B64[(bits >> (6 * i)) & 63] for i in range(n))
+    out = []
+    for i in range(0, len(data), 3):
+        v = int.from_bytes(data[i:i + 3], "little")
+        out.append(JUCE_B64[v & 63] + JUCE_B64[(v >> 6) & 63] + JUCE_B64[(v >> 12) & 63] + JUCE_B64[(v >> 18) & 63])
+    return f"{len(data)}." + "".join(out)[:n]
 
 
 def juce_b64decode(text: str) -> bytes:
     size, _, chars = text.strip().partition(".")
-    bits = 0
-    for i, ch in enumerate(chars):
-        bits |= JUCE_B64.index(ch) << (6 * i)
-    return (bits & ((1 << (8 * int(size))) - 1)).to_bytes(int(size), "little")
+    size = int(size)
+    out = bytearray()
+    for i in range(0, len(chars), 4):
+        v = 0
+        for j, ch in enumerate(chars[i:i + 4]):
+            v |= JUCE_B64.index(ch) << (6 * j)
+        out += v.to_bytes(3, "little")
+    return bytes(out[:size])
 
 
 def fxp_chunk(path: Path) -> bytes:

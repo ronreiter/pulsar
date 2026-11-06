@@ -1072,6 +1072,28 @@ def b_plugin(interp, name, preset=None, state=None, calibrate=True, **kw):
                               "calibrate": calibrate, "transpose": transpose})
 
 
+def b_ableton_set(interp, path, calibration=None):
+    """Tie this song to an Ableton Live set: tracks made with ableton_track() play that set's
+    instruments, device chains and mix (groups, sends, sidechains, master), with the notes written
+    here. calibration: an optional JSON of per-track dB corrections (from matching a reference)."""
+    def resolve(x):
+        q = Path(str(x)).expanduser()
+        q = q if q.is_absolute() else (interp.basedir / q).resolve()
+        if not q.exists():
+            raise PulsarError(f"file not found: {q}")
+        return str(q)
+    interp.song.ableton = {"path": resolve(path), "calibration": resolve(calibration) if calibration else None}
+    return None
+
+
+def b_ableton_track(interp, name):
+    """A track that plays the Ableton set's track `name` (its instrument and device chain)."""
+    if interp.song.ableton is None:
+        raise PulsarError("ableton_track() needs ableton_set(\"file.als\") first")
+    return Instrument("ableton", str(name), "ableton", {}, {}, False, 4, {"gain": 0.0}, base_gain=0.0,
+                      sample={"track": str(name)})
+
+
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
 
 
@@ -1286,7 +1308,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra, "plugin": b_plugin,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra, "plugin": b_plugin, "ableton_set": b_ableton_set, "ableton_track": b_ableton_track,
     "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,

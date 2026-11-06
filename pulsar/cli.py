@@ -328,6 +328,21 @@ def cmd_library(args):
     return 0
 
 
+def cmd_import_ableton(args):
+    """Write a Pulsar song from an Ableton Live set (notes in clips; devices and mix from the set)."""
+    from .ableton.importer import write_pulse
+    from .errors import PulsarError
+
+    out = Path(args.output or Path(args.set).with_suffix(".pulse").name)
+    try:
+        write_pulse(args.set, out, args.calibration)
+    except (PulsarError, OSError, KeyError) as e:
+        print(f"error: {getattr(e, 'msg', e)}", file=sys.stderr)
+        return 1
+    print(f"wrote {out} -- render it with: pulsar render {out} --mp3", file=sys.stderr)
+    return 0
+
+
 def cmd_setup(args):
     """Check the installation and fetch the instruments, so the first render doesn't wait."""
     import shutil as _sh
@@ -488,6 +503,11 @@ def main(argv=None):
     lb.add_argument("--limit", type=int, default=30)
     lb.add_argument("--json", action="store_true")
     lb.set_defaults(fn=cmd_library)
+    ia = sub.add_parser("import-ableton", help="turn an Ableton Live set (.als) into a Pulsar song")
+    ia.add_argument("set")
+    ia.add_argument("-o", "--output")
+    ia.add_argument("--calibration", help="a JSON of per-track dB corrections to apply when rendering")
+    ia.set_defaults(fn=cmd_import_ableton)
     st = sub.add_parser("setup", help="check the installation and download the instruments ahead of time")
     st.add_argument("--all", action="store_true", help="also the grand piano (410 MB) and the whole orchestra (~1 GB)")
     st.add_argument("--minimal", action="store_true", help="only check the tools; download nothing")
