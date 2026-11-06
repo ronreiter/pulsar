@@ -160,6 +160,7 @@ class Song:
     master: list = field(default_factory=list)
     sections: dict = field(default_factory=dict)
     arrangement: list = field(default_factory=list)
+    ableton: dict | None = None  # {"path": .als, "calibration": json or None}: rendered by pulsar.ableton
 
     @property
     def bar_seconds(self) -> float:

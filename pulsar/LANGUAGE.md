@@ -307,6 +307,23 @@ section drop 16 {
 continuous performance (glides, LFOs and voices carry across notes), so it isn't humanized
 by Pulsar; renders that use a commercial plugin only work where it's installed.
 
+## Importing Ableton Live sets
+
+`pulsar import-ableton project.als -o song.pulse` turns a Live set into a Pulsar song. The notes
+of every MIDI track are written into clips (one section per locator), so you can edit them here
+or in Studio's note editor; the song names the set with `ableton_set("project.als")` and each
+track plays the set's own instrument and device chain with `ableton_track("Track name")`.
+
+Rendering plays the notes through the set: VST3 instruments with their saved state (so a Serum 2
+patch sounds as saved, if Serum 2 is installed), Simpler and multisample racks, audio clips,
+Live's devices (EQ Eight, Compressor with sidechains, Utility, Saturator, Delay, Echo, Reverb,
+Auto Filter, Auto Pan, Chorus, Limiter, Multiband Dynamics, Redux, Erosion, Vinyl Distortion,
+Shifter) inside nested racks with macros and chain volumes, every automation envelope, groups,
+sends, returns and the master chain. Live's own DSP is proprietary, so its devices are close
+emulations built from their stored settings rather than bit-exact copies; compare against a
+render from Live (`pulsar compare`) and pass per-track dB corrections with
+`ableton_set("project.als", calibration: "corrections.json")` if you need a closer match.
+
 ## Samples
 
 **The open sound library.** `sampler()` also takes a library reference instead of a file:

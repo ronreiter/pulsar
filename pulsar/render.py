@@ -645,6 +645,28 @@ class Renderer:
                 out *= 10 ** (REF_MOMENTARY_DB / 20) / rms
         return out
 
+    # -- Ableton sets ------------------------------------------------------------------
+
+    def render_ableton(self) -> RenderResult:
+        """The song's notes played through its Ableton set: instruments, devices, mix and master."""
+        from .ableton import als
+        from .ableton.engine import Renderer as LiveRenderer
+        t0 = time.time()
+        cfg = self.song.ableton
+        live = als.read(cfg["path"])
+        trim = json.loads(Path(cfg["calibration"]).read_text()) if cfg.get("calibration") else None
+        notes = {}
+        for name, tr in self.song.tracks.items():
+            if tr.inst.kind == "ableton":
+                notes.setdefault(tr.inst.sample["track"], []).extend(
+                    (n.time, n.dur, n.pitch, n.vel) for n in self.score.notes.get(name, []) if n.pitch is not None)
+        seconds = self.length_samples(OUT_SR) / OUT_SR
+        self.log(f"  rendering the Ableton set {Path(cfg['path']).name} ({len(live['tracks'])} tracks)")
+        mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim).render()
+        info = {"tracks": {k: {"notes": len(v)} for k, v in notes.items()}, "seconds": round(seconds, 2),
+                "render_seconds": round(time.time() - t0, 1), "credits": []}
+        return RenderResult(mix.astype(np.float32), OUT_SR, {}, info)
+
     # -- ambience ----------------------------------------------------------------------
 
     def ambience_source(self, tr: Track):
@@ -950,6 +972,8 @@ class Renderer:
         return sum(nt.dur + rel for nt in notes) * (1 + uni)
 
     def render(self, want_stems=False, jobs: int | None = None) -> RenderResult:
+        if self.song.ableton:
+            return self.render_ableton()
         t0 = time.time()
         n = self.length_samples(OUT_SR)
         mix = np.zeros((2, n), np.float32)
