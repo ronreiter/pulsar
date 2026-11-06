@@ -251,3 +251,15 @@ def test_patterns_trigger_an_audio_tracks_clip(live_set, tmp_path):
     assert np.abs(y[:, :int(0.45 * SR)]).max() < 1e-4
     level = np.abs(y[0, int(0.7 * SR):int(1.2 * SR)]).max()
     assert abs(20 * np.log10(level / 0.5) + 12.0) < 0.5
+
+
+def test_palette_hits_and_frozen_automation(live_set, tmp_path):
+    p = tmp_path / "x.pulse"
+    song, _ = run(f'ableton_set("{live_set}", tracks: "declared", sound_at: "Main")\n'
+                  'track lead = ableton_track("Lead")\nsection a 1 { play lead "x ~ x ~" }\narrange a\n', str(p))
+    assert song.ableton["freeze"] == 6.0             # the middle of the "Main" section (beats 4-8)
+    notes = compile_song(song).notes["lead"]
+    assert len(notes) == 2 and song.tracks["lead"].inst.sample["hit"] == 69.0  # "x" is Lead's one note
+    from pulsar.ableton.engine import Automation
+    a = Automation([{"target": "1", "points": [(0, 0.0), (4, 1.0)]}], 120, SR * 2, freeze=2)
+    assert np.allclose(a.curve("1", None), 0.5)      # held at its value on beat 2

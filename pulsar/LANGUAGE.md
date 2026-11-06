@@ -327,13 +327,23 @@ render from Live (`pulsar compare`) and pass per-track dB corrections with
 **A set as a sound palette.** To write your own song with a set's sounds and mix, pass
 `tracks: "declared"`: only the tracks you name with `ableton_track()` make sound, and the set's
 own audio clips (vocals, loops) stay out. An audio track plays like a sample, so `"x"` starts its
-clip: a looping clip plays for the note's length, a one-shot plays out until the next hit.
+clip: a looping clip plays for the note's length, a one-shot plays out until the next hit. A
+track the set only ever plays on one note (a drum) takes `"x"` too, which plays that note.
+
+The set's automation belongs to its own arrangement, so in this mode it holds still: every
+automated parameter keeps its value from the middle of the set's longest section, or of the
+section named by `sound_at: "Drop"` (a locator name, or a beat number).
+
+`ableton_track(name, octave: 3, gain: -2)`: `octave` is where chord symbols and notes without an
+octave land (patches are often transposed, so check where the set itself plays them), and `gain`
+is dB on top of the set's fader.
 
 ```
-ableton_set("project.als", tracks: "declared")
-track bass   = ableton_track("Bassline")
+ableton_set("project.als", tracks: "declared", sound_at: "Drop")
+track kick   = ableton_track("Kick")
+track bass   = ableton_track("Bassline", octave: 4)
 track shaker = ableton_track("Shaker Loop")
-section groove 8 { play bass "a1 ~ a1 ~ c2 ~ g1 ~"  play shaker "x" }
+section groove 8 { play kick "x*4"  play bass "<c ab f g>".struct("[~ x x x]*4")  play shaker "x" }
 ```
 
 ## Samples
