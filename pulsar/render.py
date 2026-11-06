@@ -658,14 +658,21 @@ class Renderer:
         notes = {}
         for name, tr in self.song.tracks.items():
             if tr.inst.kind == "ableton":
-                audio = tr.inst.sample.get("audio")  # an audio track's hits start its clip; no pitch
+                audio, hit = tr.inst.sample.get("audio"), tr.inst.sample.get("hit")
+                # an audio track's hits start its clip (no pitch); a one-note track's hits play its note
                 notes.setdefault(tr.inst.sample["track"], []).extend(
-                    (n.time, n.dur, None if audio else n.pitch, n.vel) for n in self.score.notes.get(name, [])
-                    if audio or n.pitch is not None)
+                    (n.time, n.dur, None if audio else hit if n.pitch is None else n.pitch, n.vel)
+                    for n in self.score.notes.get(name, []) if audio or n.pitch is not None or hit is not None)
         include = set(notes) if cfg.get("tracks") == "declared" else None
+        trim = dict(trim or {})
+        for tr in self.song.tracks.values():  # each ableton_track(gain:) rides that track's fader
+            if tr.inst.kind == "ableton" and tr.mixer.get("gain"):
+                name = tr.inst.sample["track"]
+                trim[name] = trim.get(name, 0.0) + float(tr.mixer["gain"])
         seconds = self.length_samples(OUT_SR) / OUT_SR
         self.log(f"  rendering the Ableton set {Path(cfg['path']).name} ({len(live['tracks'])} tracks)")
-        mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim, include=include).render()
+        mix = LiveRenderer(live, notes, seconds, log=self.log, trim=trim, include=include,
+                           freeze=cfg.get("freeze")).render()
         from .dsp.master import limit
         mix, _ = limit(mix.astype(np.float32), OUT_SR, self.song.ceiling)  # a true-peak safety net
         info = {"tracks": {k: {"notes": len(v)} for k, v in notes.items()}, "seconds": round(seconds, 2),

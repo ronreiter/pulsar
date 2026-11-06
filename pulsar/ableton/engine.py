@@ -20,8 +20,9 @@ SR = D.SR
 class Automation:
     """Every automation envelope of the set, by automation-target id, as per-sample arrays."""
 
-    def __init__(self, envelopes: list[dict], tempo: float, n: int):
-        self.tempo, self.n = tempo, n
+    def __init__(self, envelopes: list[dict], tempo: float, n: int, freeze: float | None = None):
+        """freeze: hold every envelope at its value at this beat (the set as a fixed sound palette)."""
+        self.tempo, self.n, self.freeze = tempo, n, freeze
         self.by_id = {}
         for e in envelopes:
             if e["target"] and e["points"]:
@@ -35,6 +36,9 @@ class Automation:
         pts = sorted(pts)
         t = np.array([max(0.0, p[0]) * 60.0 / self.tempo for p in pts])
         v = np.array([p[1] for p in pts], dtype=np.float64)
+        if self.freeze is not None:
+            at = self.freeze * 60.0 / self.tempo
+            return np.full(self.n, np.interp(at, t, v), np.float32)
         x = np.arange(self.n) / SR
         return np.interp(x, t, v).astype(np.float32)
 
@@ -46,18 +50,19 @@ def _val(dev, path, default=0.0):
 
 class Renderer:
     def __init__(self, live: dict, notes: dict[str, list], seconds: float, log=print, trim: dict | None = None,
-                 include: set | None = None):
+                 include: set | None = None, freeze: float | None = None):
         """`notes`: Ableton track name -> [(time s, dur s, midi key, velocity 0-1)] from the Pulsar song;
         for an audio track the key is None and each note starts the track's clip (a hit).
         `include`: only these tracks make sound (groups, returns and the master still process them);
-        None plays every track, audio tracks with their own clips."""
+        None plays every track, audio tracks with their own clips.
+        `freeze`: a beat of the set; every automated parameter holds its value there."""
         self.live = live
         self.tempo = live["tempo"]
         self.notes = notes
         self.n = int(seconds * SR)
         self.log = log
         envs = [e for t in live["tracks"] + live["returns"] + [live["master"]] for e in t["envelopes"]]
-        self.auto = Automation(envs, self.tempo, self.n)
+        self.auto = Automation(envs, self.tempo, self.n, freeze)
         self.post: dict[str, np.ndarray] = {}  # track id -> post-effects audio (for sidechains)
         self.trim = trim or {}  # track name -> extra fader dB (calibration against a reference)
         self.include = include
