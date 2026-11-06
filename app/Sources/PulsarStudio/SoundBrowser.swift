@@ -163,6 +163,7 @@ struct SoundBrowserView: View {
                 Button("Search") { model.search() }.disabled(model.busy)
             }
             .padding(10)
+            .background(Color(red: 0.11, green: 0.115, blue: 0.13))
             List(model.results, selection: $model.selection) { it in
                 HStack(spacing: 10) {
                     Button { model.preview(it) } label: {
@@ -196,6 +197,7 @@ struct SoundBrowserView: View {
             }
             .font(.system(size: 12))
             .padding(10)
+            .background(Color(red: 0.11, green: 0.115, blue: 0.13))
         }
         .frame(minWidth: 640, minHeight: 420)
     }
