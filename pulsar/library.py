@@ -34,7 +34,7 @@ VCSL_REPO = "sgossner/VCSL"
 VCSL_TREE = f"https://api.github.com/repos/{VCSL_REPO}/git/trees/master?recursive=1"
 VCSL_RAW = f"https://raw.githubusercontent.com/{VCSL_REPO}/master/"
 SOURCES = ("vcsl", "commons", "freesound")
-SCHEMES = tuple(s + ":" for s in SOURCES)
+SCHEMES = tuple(s + ":" for s in SOURCES) + ("gen:",)  # gen: a sound generated locally (pulsar.generate)
 
 
 @dataclass
@@ -193,6 +193,12 @@ def _meta_path(ref: str) -> Path:
 
 def fetch(ref: str, log=lambda m: None) -> tuple[Path, Item]:
     """The sound as a local WAV (downloaded and converted once), and its metadata."""
+    if ref.startswith("gen:"):
+        from . import generate
+        model, seconds, seed, prompt = generate.parse(ref)
+        path = generate.generate(prompt, model, seconds, seed, log)
+        c = generate.credit(prompt, model)
+        return path, Item(ref, prompt, "stable-audio", c["license"], c["creator"], c["url"], "", seconds)
     h = hashlib.sha1(ref.encode()).hexdigest()[:16]
     wav = CACHE / "files" / f"{h}.wav"
     meta = _meta_path(ref)

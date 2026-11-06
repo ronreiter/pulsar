@@ -324,6 +324,31 @@ emulations built from their stored settings rather than bit-exact copies; compar
 render from Live (`pulsar compare`) and pass per-track dB corrections with
 `ableton_set("project.als", calibration: "corrections.json")` if you need a closer match.
 
+## Generated sounds (Stable Audio 3, local)
+
+`generate("description")` makes a sound with Stability AI's open-weight Stable Audio 3 models,
+on your machine, and hands it to `sampler()`:
+
+```
+track glass = sampler(generate("glass shattering on concrete, close", seconds: 3))
+track riser = sampler(generate("dark cinematic riser, metallic", model: "music", seconds: 8))
+section hit 4 { play glass "x ~ ~ ~" at 3 }
+```
+
+| setting | meaning |
+|---|---|
+| `model` | `"sfx"` (default; sound effects and foley), `"music"` (instrumental loops and textures) -- both run on a laptop CPU -- or `"medium"` (needs an NVIDIA GPU) |
+| `seconds` | length, 0.5-120 (380 for medium) |
+| `seed` | another seed is another take of the same description |
+
+Sounds are generated on the first render and cached, so a song renders the same sound every
+time; `pulsar generate "description" -o file.wav --play` makes one from the command line.
+Stable Audio 3 makes no vocals: use `voice()` for singing and speech. The generator installs
+itself into `~/.cache/pulsar/stable-audio` on first use (`pulsar generate --setup` does it ahead
+of time). Its weights are gated on Hugging Face: accept the Stability AI Community License on the
+model page once and log in with the `hf` command `pulsar generate --setup` prints. Renders that
+use generated sounds note it in their credits.
+
 ## Samples
 
 **The open sound library.** `sampler()` also takes a library reference instead of a file:
