@@ -233,6 +233,8 @@ def play_ctx(song: Song, sec, idx: int, pi: int, track) -> Ctx:
             "voice": "sample", "ambience": "sample"}.get(inst.kind, "melodic")
     if inst.kind == "orchestra" and inst.sample.get("kit"):
         kind = "drums"
+    if inst.kind == "ableton" and inst.sample.get("audio"):
+        kind = "sample"
     # Seeded by the track and how many plays of it came before, not by the play's place among all of
     # the section's plays: rewriting one track's plays (the note editor) leaves the others' randomness alone.
     k = sum(1 for p in sec.plays[:pi] if p.track == track.name)
@@ -287,7 +289,7 @@ def compile_song(song: Song) -> Score:
                 ctrl = {k: v for k, v in ev.v.items() if k in ("slide", "accent", "slice")}
                 if inst.kind == "drums" or "drum" in ev.v:
                     notes[play.track].append(Note(b * bar, d, None, ev.v["drum"], vel, ctrl, b))
-                elif inst.kind in ("sampler", "voice", "ambience"):
+                elif inst.kind in ("sampler", "voice", "ambience") or (inst.kind == "ableton" and inst.sample.get("audio")):
                     for n in ev.v.get("notes") or [None]:
                         notes[play.track].append(Note(b * bar, d, None if n is None else float(n), None, vel, ctrl, b))
                 else:
