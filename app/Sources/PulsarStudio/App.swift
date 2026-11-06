@@ -10,7 +10,7 @@ struct PulsarStudioApp: App {
         WindowGroup("Pulsar Studio") {
             ContentView(model: model)
                 .frame(minWidth: 1100, minHeight: 640)
-                .onAppear { openInitialFile(); NoteEditorSelfTest.runIfRequested(studio: model) }
+                .onAppear { openInitialFile(); NoteEditorSelfTest.runIfRequested(studio: model); SoundBrowserSelfTest.runIfRequested(studio: model) }
                 .onOpenURL { model.open($0) }
         }
         .windowStyle(.hiddenTitleBar)
@@ -36,6 +36,7 @@ struct PulsarStudioApp: App {
                 Button("Play / Pause") { model.togglePlay() }.keyboardShortcut("r")
                 Button("Stop") { model.stop() }.keyboardShortcut(".")
                 Button("Re-render") { model.renderOnly() }.keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("Sound Library…") { SoundBrowserWindow.show(studio: model) }.keyboardShortcut("l")
                 Divider()
                 Button("Zoom In") { model.pixelsPerBar = min(400, model.pixelsPerBar * 1.25) }.keyboardShortcut("=")
                 Button("Zoom Out") { model.pixelsPerBar = max(4, model.pixelsPerBar / 1.25) }.keyboardShortcut("-")
@@ -77,7 +78,7 @@ struct PulsarStudioApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        if ProcessInfo.processInfo.environment["PULSAR_EDITOR_SELFTEST"] == nil { NSApp.activate(ignoringOtherApps: true) }
+        if ProcessInfo.processInfo.environment["PULSAR_EDITOR_SELFTEST"] == nil, ProcessInfo.processInfo.environment["PULSAR_LIBRARY_SELFTEST"] == nil { NSApp.activate(ignoringOtherApps: true) }
         NSApp.appearance = NSAppearance(named: .darkAqua)
     }
 
@@ -92,7 +93,8 @@ struct ContentView: View {
             TransportBar(model: model)
             HSplitView {
                 VStack(spacing: 0) {
-                    EditorView(text: $model.source, errorLine: model.error?.line, jumpToLine: $model.jumpToLine)
+                    EditorView(text: $model.source, errorLine: model.error?.line, jumpToLine: $model.jumpToLine,
+                               onCursor: { model.cursorOffset = $0 })
                     if let err = model.error {
                         ErrorBanner(error: err) { if let l = err.line { model.jumpToLine = l } }
                     }

@@ -6,6 +6,7 @@ struct EditorView: NSViewRepresentable {
     @Binding var text: String
     var errorLine: Int?
     @Binding var jumpToLine: Int?
+    var onCursor: ((Int) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -107,6 +108,11 @@ struct EditorView: NSViewRepresentable {
             tv.performTextFinderAction(item)
         }
 
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = textView else { return }
+            parent.onCursor?(tv.selectedRange().location)
+        }
+
         func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
             parent.text = tv.string
@@ -151,7 +157,7 @@ enum Highlighter {
     static let keywords = ["tempo", "key", "swing", "seed", "loudness", "ceiling", "track", "bus", "master", "section",
                            "extends", "play", "from", "to", "at", "mute", "automate", "arrange", "let", "fn", "return",
                            "if", "elif", "else", "for", "in", "repeat", "true", "false", "none", "and", "or", "not"]
-    static let builtins = ["synth", "drums", "analog", "fm", "pluck", "sampler", "voice", "ambience", "piano", "orchestra", "clip", "reverb", "delay", "chorus", "drive",
+    static let builtins = ["synth", "drums", "analog", "fm", "pluck", "sampler", "voice", "ambience", "piano", "accordion", "orchestra", "clip", "reverb", "delay", "chorus", "drive",
                            "dist", "crush", "lofi", "filter", "lp", "hp", "eq", "comp", "width", "phaser", "tremolo",
                            "gain", "pan", "tone", "seq", "cat", "stack", "euclid", "ramp", "lfo", "print", "range",
                            "len", "rand", "choose", "note", "chord", "silence"]

@@ -8,3 +8,5 @@ __pycache__/
 samples/
 pulsar-out/
 voice_ab/
+build/
+dist/

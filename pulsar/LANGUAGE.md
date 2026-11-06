@@ -231,6 +231,9 @@ the first render (`pulsar check` stays offline). The grand is CC BY: renders tha
 it in `<output>.credits.txt`. Real pianos are stretch-tuned (the bass sits a few cents flat),
 which blends with synths at A440 without beating noticeably.
 
+`accordion()` is a sampled Hohner button accordion (CC0, 5 MB once) on the same player as `piano()`, with the
+same settings. It has one recorded dynamic, so `dynamics: 2` makes velocity shape it more.
+
 ## Orchestra (sampled)
 
 `orchestra("violins")` is a real orchestral section: the Versilian Studios Chamber Orchestra 2
@@ -241,10 +244,11 @@ a crossfade. Each instrument downloads once (10-75 MB), on the first render that
 
 | family | instruments (`_spic` spiccato, `_trem` tremolo, `_pizz` pizzicato, `_stac` staccato) |
 |---|---|
+| solo | `violin` `violin_pizz` (solo violin), `glockenspiel` (sounds an octave above the written note) |
 | strings | `violins` `violins_spic` `violins_trem` `violins_pizz` `violas` `violas_spic` `violas_trem` `celli` `celli_spic` `celli_trem` `celli_pizz` `basses` `basses_spic` `basses_pizz` `harp` |
 | brass | `horns` `horns_stac` `trombones` `trombones_stac` `tuba` `tuba_stac` `trumpets` `trumpets_stac` |
 | woodwinds | `flute` `oboe` `clarinet` `bassoon` |
-| percussion | `orchestra("percussion")`, a kit: `bd` `bdm` (muted) `taiko` `taikoh` (hand) `taikos` (sticks) `tenor` `timp` `timph` `gong` `crash` `sus` `snare` `anvil`; rolls `bdroll` `timproll` `snareroll` and cymbal swells `swell` `swellshort` |
+| percussion | `orchestra("percussion")`, a kit: `bd` `bdm` (muted) `taiko` `taikoh` (hand) `taikos` (sticks) `tenor` `timp` `timph` `gong` `crash` `sus` `snare` `anvil` `doum` `tek` `ka` (hand drums); rolls `bdroll` `timproll` `snareroll` and cymbal swells `swell` `swellshort` |
 
 ```
 track ostinato = orchestra("celli_spic")
@@ -274,7 +278,45 @@ Samples are trimmed to their onsets (some recordings start up to 0.1 s early), a
 notes overlap the next one slightly, like legato bowing. Keep each instrument in its real range (`pulsar presets` shows the
 octaves): notes far outside the recorded range are re-pitched and sound unnatural.
 
+## Plugins (VST3 / AU synths)
+
+`plugin("surge")` plays a real plugin synthesizer. **Surge XT** (open source, GPL-3) is
+downloaded on first use into `~/.cache/pulsar/plugins` with its ~2,000 factory patches and
+wavetables -- no installer, no admin rights. **Vital** / Vitalium and **Serum 2** work when
+they're installed; any other synth works by path: `plugin("/Library/Audio/Plug-Ins/VST3/X.vst3")`.
+
+```
+track lead = plugin("surge", preset: "Emu/Basses/Acidy FM Boy", gain: -2) >> delay(3/16)
+track bass = plugin("surge", preset: "Cybersoda/Basses/Acid Bassline 1", a_filter_1_cutoff: 0.3)
+section drop 16 {
+  play lead "<[a4 _ c5 e5] [g5 _ e5 _]>"
+  automate bass.a_filter_1_cutoff 0.2 -> 0.7
+}
+```
+
+| setting | meaning |
+|---|---|
+| `preset` | a factory or user preset by name (`"Leads/Acid Lead"`, `"acid lead"`; case and punctuation don't matter) or a preset file path |
+| `state` | a plugin state file (saved from the plugin itself), relative to the song |
+| any other name | one of the plugin's own parameters, 0-1, in lowercase with underscores (Surge: `a_filter_1_cutoff`, its scene A filter); automatable like any parameter |
+| `calibrate` | `true` (default): the track is brought to Pulsar's reference level once, keeping its dynamics |
+| `transpose` | semitones |
+
+`pulsar plugins` lists what's installed, `pulsar plugins presets surge lead` searches presets,
+`pulsar plugins params surge filter` lists parameters. A plugin track renders as one
+continuous performance (glides, LFOs and voices carry across notes), so it isn't humanized
+by Pulsar; renders that use a commercial plugin only work where it's installed.
+
 ## Samples
+
+**The open sound library.** `sampler()` also takes a library reference instead of a file:
+`sampler("vcsl:Idiophones/Struck Idiophones/Claps/Clap_rr1.wav")`. The sound is downloaded on
+first use and credited next to the render, and the song stays portable (no paths from your
+disk). `pulsar library search "clap"` searches VCSL (4,000+ CC0 recordings: percussion,
+instruments, winds), Wikimedia Commons (sound effects and field recordings, PD / CC0 / CC BY)
+and, with a `FREESOUND_API_KEY`, Freesound; `pulsar library snippet <ref>` prints the lines to
+paste. In Pulsar Studio, **Song > Sound Library (⌘L)** does all of it: search, preview, and
+Insert adds the track after your other tracks and a `play` line at the cursor.
 
 `sampler("path.wav", ...)` plays an audio file (WAV, AIFF, FLAC, OGG; paths are relative
 to the song file). Use it for vocals, one-shots, loops and chops.

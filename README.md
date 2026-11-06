@@ -34,6 +34,8 @@ free stock recordings with `ambience()`.
 [`examples/soft_rain.pulse`](examples/soft_rain.pulse) (an upright piano, cellos and a flute by a rainy window)
 and [`examples/low_tide.pulse`](examples/low_tide.pulse) (harp in a slow 12/8, grand piano and violins over
 ocean waves) are two more in the same spirit.
+[`examples/open_source.pulse`](examples/open_source.pulse) is a short house track made only
+from open instruments: Surge XT presets and drum recordings from the open sound library.
 [`examples/iron_meridian.pulse`](examples/iron_meridian.pulse) is epic orchestral trailer music on the
 sampled orchestra: a spiccato ostinato, a low horn theme and a build that climbs a semitone every two bars
 into one beat of silence before the hit.
@@ -89,6 +91,10 @@ by note at 96 kHz and placed sample-exactly:
 - a sampled orchestra (VSCO-2 CE, CC0): string sections with spiccato, tremolo and pizzicato, brass,
   woodwinds and big percussion (taiko, timpani, gong, cymbal swells), velocity-layered with
   alternating takes;
+- an open sound library (an open-source take on Splice): search, preview and insert openly licensed
+  samples and sound effects (VCSL, Wikimedia Commons, Freesound) from the CLI or Studio (⌘L);
+- plugin synths: Surge XT (open source, installed automatically with its ~2,000 patches), Vital,
+  Serum 2 or any VST3 / AU, with presets, parameters and sample-accurate automation;
 - sampled acoustic pianos: a Yamaha C5 grand with 16 velocity layers and a Kawai upright, with
   dampers, key-up string resonance and hammer noise;
 - free stock ambience -- birds, water, rain, waves -- searched in openly licensed archives
@@ -106,14 +112,25 @@ recording's timbre with `pulsar timbre`.
 
 ## Install
 
-Python 3.10+ (macOS or Linux), ffmpeg for MP3 export.
+macOS or Linux (on Windows, WSL):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ronreiter/pulsar/main/install.sh | sh
+```
+
+That installs the `pulsar` command for your user (through [uv](https://docs.astral.sh/uv/), in its
+own Python 3.12 environment) and downloads the instruments it plays first: Surge XT, an
+open-source synthesizer, and a sampled upright piano. Everything else -- the grand piano, the
+orchestra, stock sounds, the singing voice -- downloads the first time a song uses it, into
+`~/.cache/pulsar`. Pulsar needs `ffmpeg` for MP3 export (`brew install ffmpeg`). Run the line
+again to upgrade; `pulsar setup --all` fetches every instrument ahead of time.
+
+From a clone, for development:
 
 ```sh
 git clone https://github.com/ronreiter/pulsar && cd pulsar
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e ".[mcp,voice,dev]"
 ```
-
-The `voice` extra adds the text-to-speech singer; its model (~350 MB) downloads on first use.
 
 ## Use
 
@@ -149,7 +166,7 @@ app/build_app.sh && open "app/build/Pulsar Studio.app"    # needs only the Xcode
 
 ⌘R play / pause · ⌘. stop · ⌘⇧R re-render · ⌘F find (⌥⌘F replace, ⌘G next) · ⌘= / ⌘- zoom time (pinch, ⌘-scroll) ·
 ⌥⌘= / ⌥⌘- stretch lanes (⌥-pinch, ⌥-scroll) · ⌘0 reset zoom · click the ruler to seek ·
-click a track header to jump to its line. Auto-follow pauses for 10 s whenever you scroll by hand.
+click a track header to jump to its line. ⌘L opens the Sound Library. Auto-follow pauses for 10 s whenever you scroll by hand.
 
 ### MCP
 

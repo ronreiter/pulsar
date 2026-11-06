@@ -17,6 +17,8 @@ final class StudioModel: ObservableObject {
     @Published var isPlaying = false
     @Published var selectedTrack: String?
     @Published var jumpToLine: Int?
+    /// Where the editor's cursor is (UTF-16 offset); not published, so typing doesn't redraw everything.
+    var cursorOffset = 0
     @Published var pixelsPerBar: CGFloat = 26
     /// Vertical zoom: multiplies every lane's height (notes and drum rows stretch with it).
     @Published var laneScale: CGFloat = 1

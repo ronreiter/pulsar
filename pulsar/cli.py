@@ -247,6 +247,124 @@ def cmd_clip(args):
     return 0
 
 
+def cmd_plugins(args):
+    from . import plugins
+    from .errors import PulsarError
+
+    try:
+        if args.action in (None, "list"):
+            print("plugin instruments  (track lead = plugin(\"surge\", preset: \"...\"))")
+            for k, title, path in plugins.available():
+                auto = plugins.KNOWN[k][2]
+                where = str(path) if path else ("not installed -- downloads on first use" if auto else
+                                                f"not installed ({plugins.KNOWN[k][4]})")
+                print(f"  {k:8} {title:10} {where}")
+            return 0
+        name = args.name or "surge"
+        if args.action == "install":
+            print(plugins.ensure(name, lambda m: print(m, file=sys.stderr)))
+            return 0
+        if args.action == "presets":
+            plugins.ensure(name, lambda m: print(m, file=sys.stderr))
+            q = plugins.norm(args.query or "")
+            shown = 0
+            for pth in plugins.presets(name):
+                rel = next((str(pth.relative_to(d).with_suffix("")) for d in plugins.preset_dirs(name)
+                            if d.exists() and str(pth).startswith(str(d))), pth.stem)
+                if q in plugins.norm(rel):
+                    print(f"  {rel}")
+                    shown += 1
+            print(f"{shown} presets", file=sys.stderr)
+            return 0
+        if args.action == "params":
+            import dawdreamer as daw
+            path = plugins.ensure(name, lambda m: print(m, file=sys.stderr))
+            eng = daw.RenderEngine(48000, 512)  # keep the engine alive: it owns the plugin
+            proc = eng.make_plugin_processor("p", str(path))
+            q = plugins.norm(args.query or "")
+            for d in proc.get_parameters_description():
+                n = plugins.norm(d["name"])
+                if q in n:
+                    print(f"  {n:40} {proc.get_parameter_text(d['index'])}")
+            return 0
+    except PulsarError as e:
+        print(f"error: {e.msg}" + (f"\n  hint: {e.hint}" if e.hint else ""), file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_library(args):
+    """Search the open sound library, fetch a sound, or print the code that uses it."""
+    from dataclasses import asdict
+
+    from . import library
+    from .errors import PulsarError
+
+    try:
+        if args.action == "search":
+            items = library.search(args.query or "", args.source, args.limit, args.license)
+            if args.json:
+                print(json.dumps([dict(asdict(i), **library.snippet(i)) for i in items]))
+                return 0
+            for i in items:
+                dur = f"{i.duration:5.1f}s" if i.duration else "      "
+                print(f"{i.source:9} {i.license:12} {dur}  {i.title}")
+                print(f"{'':9} {i.ref}")
+            return 0
+        if args.action == "fetch":
+            path, it = library.fetch(args.query, lambda m: print(m, file=sys.stderr))
+            print(json.dumps({"path": str(path), **asdict(it)}) if args.json else path)
+            return 0
+        if args.action == "snippet":
+            it = library.item(args.query)
+            sn = library.snippet(it)
+            print(json.dumps(sn) if args.json else sn["track"] + "\n" + sn["play"])
+            return 0
+    except PulsarError as e:
+        if args.json:
+            print(json.dumps({"error": e.msg, "hint": e.hint}))
+        print(f"error: {e.msg}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_setup(args):
+    """Check the installation and fetch the instruments, so the first render doesn't wait."""
+    import shutil as _sh
+
+    from . import orchestra, piano, plugins
+    ok = True
+    print(f"pulsar {_version()} on Python {sys.version.split()[0]}")
+    for tool, why in (("ffmpeg", "MP3 export and stock sounds"),):
+        found = _sh.which(tool)
+        print(f"  {'ok ' if found else 'missing'} {tool:8} {found or 'needed for ' + why + ' (macOS: brew install ffmpeg)'}")
+        ok &= bool(found)
+    log = lambda m: print(m)
+    if args.minimal:
+        return 0 if ok else 1
+    print("instruments (downloaded once into ~/.cache/pulsar):")
+    plugins.ensure("surge", log)
+    print("  ok  Surge XT")
+    piano.install("upright", log)
+    print("  ok  upright piano")
+    if args.all:
+        piano.install("grand", log)
+        print("  ok  grand piano")
+        for name in orchestra.names():
+            orchestra.install(name, log)
+        print("  ok  orchestra")
+    print("ready" if ok else "ready, but see the missing tools above")
+    return 0 if ok else 1
+
+
+def _version() -> str:
+    try:
+        from importlib.metadata import version
+        return version("pulsar-music")
+    except Exception:  # noqa: BLE001
+        return "dev"
+
+
 def cmd_presets(args):
     from . import presets
 
@@ -266,7 +384,9 @@ def cmd_presets(args):
     from . import orchestra, piano
     print("\nsampled pianos  (piano(\"name\", pedal: 0.4))")
     for name, info in piano.PIANOS.items():
-        print(f"  {name:12} {info['title']} ({info['license']}, {info['size']} once)")
+        if name != "accordion":
+            print(f"  {name:12} {info['title']} ({info['license']}, {info['size']} once)")
+    print("\nsampled accordion  (accordion(gain: -2, dynamics: 2); a Hohner button accordion, CC0, 5 MB once)")
     print("\nsampled orchestra  (orchestra(\"name\", gain: -2); VSCO-2 CE, CC0, downloads per instrument)")
     for name, (_, _, _, octv, desc) in orchestra.PITCHED.items():
         print(f"  {name:15} oct {octv}  {desc}")
@@ -355,6 +475,23 @@ def main(argv=None):
     cl.add_argument("--write", help="a JSON file of notes [{beat, note, len, vel, flags}]: prints the new source")
     cl.add_argument("--stdin", action="store_true", help="read the source from stdin (file is used for paths)")
     cl.set_defaults(fn=cmd_clip)
+    pg = sub.add_parser("plugins", help="plugin synths (Surge XT, Vital, Serum): list, install, presets, params")
+    pg.add_argument("action", nargs="?", choices=["list", "install", "presets", "params"])
+    pg.add_argument("name", nargs="?", help="surge (default), vital, serum, or a .vst3 path")
+    pg.add_argument("query", nargs="?", help="filter presets / parameters by this text")
+    pg.set_defaults(fn=cmd_plugins)
+    lb = sub.add_parser("library", help="open sound library (VCSL, Wikimedia Commons, Freesound): search, fetch, snippet")
+    lb.add_argument("action", choices=["search", "fetch", "snippet"])
+    lb.add_argument("query", nargs="?", help="search words, or a reference (vcsl:..., commons:File:..., freesound:123)")
+    lb.add_argument("--source", choices=["vcsl", "commons", "freesound"])
+    lb.add_argument("--license", choices=["cc0", "open", "by-sa"], default="open")
+    lb.add_argument("--limit", type=int, default=30)
+    lb.add_argument("--json", action="store_true")
+    lb.set_defaults(fn=cmd_library)
+    st = sub.add_parser("setup", help="check the installation and download the instruments ahead of time")
+    st.add_argument("--all", action="store_true", help="also the grand piano (410 MB) and the whole orchestra (~1 GB)")
+    st.add_argument("--minimal", action="store_true", help="only check the tools; download nothing")
+    st.set_defaults(fn=cmd_setup)
     sd = sub.add_parser("sounds", help="search free stock recordings (birds, water, rain...) for ambience()")
     sd.add_argument("query")
     sd.add_argument("--license", choices=["cc0", "open", "by-sa"], default="open",

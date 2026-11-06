@@ -1,0 +1,95 @@
+// Melach: fighter theme for a fictional fighting game. D phrygian dominant, 100 BPM, ~2:50.
+// "Melach" is Hebrew for salt: an invented queen of the Dead Sea, the lowest place on earth.
+// Hand drums in the maqsum rhythm, a plucked oud-like line, a breathy flute, a wordless voice,
+// and an enormous low end that arrives when she stops being patient. Original throughout.
+tempo 100
+key "D phrygian_dominant"
+seed 303
+loudness -12
+
+bus hall = reverb(decay: 4.6, size: 0.92, damp: 0.45, predelay: 0.04, lowcut: 200)
+bus room = reverb(decay: 1.5, size: 0.55, damp: 0.5, predelay: 0.01)
+
+track hand  = orchestra("percussion", players: 2, room: 0.3, hall: 0.12, gain: -2, tek_gain: -2, ka_gain: -2, humanize: 5)
+track war   = orchestra("percussion", players: 3, thump: 0.75, hall: 0.3, gain: 5, taiko_gain: 2, gong_gain: -2)
+  >> comp(threshold: -18, ratio: 3, attack: 0.015, release: 0.25, makeup: 2)
+track oud   = synth("koto", room: 0.3, hall: 0.15, pan: -0.15, gain: 0) >> hp(120) >> drive(amount: 0.16, tone: 0.5, mix: 0.5)
+track flute = orchestra("flute", hall: 0.5, pan: 0.2, gain: -8, release: 0.5, humanize: 12)
+track choir = voice("af_bella", lyrics: "aah", vibrato: 0.4, inflection: 0.03, double: 0.6, hall: 0.6, gain: 2, octave: 4) >> hp(200)
+track celli = orchestra("celli_trem", players: 2, hall: 0.4, pan: 0.18, gain: -4)
+track bones = orchestra("trombones", players: 3, hall: 0.35, pan: -0.15, gain: -12)
+track sub   = synth("reese", cutoff: 0.26, resonance: 0.3, duck: 0.45, width: 0, gain: 0)
+  >> hp(35) >> drive(amount: 0.38, tone: 0.45, mix: 0.6)
+track kick  = drums("techno", bd_tune: 44, bd_decay: 0.45, bd_gain: -4)
+track shout = voice("bf_lily", mode: "speak", lyrics: "Melach / Fight", speed: 0.8, hall: 0.55, gain: 7) >> hp(170)
+track boom  = synth("impact", hall: 0.35, gain: 7)
+
+let maqsum = "[doum tek ~ tek doum ~ tek ~]"
+let maqsum2 = "[doum tek ka tek doum ka tek ka]"
+let accents = "[1 .7 .45 .7 .9 .5 .72 .45]"
+let pluck = "<[d3 eb3 d3 ~ f#3 ~ g3 f#3 eb3 d3 ~ c3 d3 ~ ~ ~] [d3 eb3 d3 ~ f#3 ~ a3 g3 f#3 eb3 d3 ~ c3 bb2 c3 d3]>"
+let ney = "<[d5 _ _ _ eb5 _ f#5 _ g5 _ _ _ f#5 eb5 d5 _] [d5 _ _ _ _ _ _ _ ~ ~ ~ ~ ~ ~ ~ ~] [a5 _ _ bb5 a5 _ g5 _ f#5 _ _ eb5 f#5 _ _ _] [eb5 _ _ d5 c5 _ d5 _ _ _ _ _ ~ ~ ~ ~]>"
+let wail = "<[d4 _ _ _ _ _ _ _] [eb4 _ _ _ d4 _ _ _] [f#4 _ _ _ g4 _ f#4 _] [eb4 _ _ _ d4 _ _ _]>"
+let low  = "<d1 d1 eb1 d1>"
+let stomp = "[bd ~ ~ bd ~ ~ bd ~]"
+let drums2 = "<[taiko ~ ~ taiko ~ ~ taiko ~] [taiko ~ ~ taiko ~ ~ taiko taikoh] [taiko ~ taiko ~ ~ taiko ~ taiko] [taiko taikoh taiko taiko [taikoh taikoh] [taiko taiko] [taiko taiko] [taiko taiko]]>"
+
+section salt 8 {
+  play hand maqsum.vel(accents).velscale(0.7) from 2
+  play celli "d2".slow(8).vel(0.5)
+  play flute ney.vel(0.45) from 4
+  play shout "x" at 1
+  automate celli.gain -8 -> 2
+}
+section patience 16 {
+  play hand maqsum.vel(accents)
+  play oud pluck
+  play celli "<d2 d2 eb2 d2>".vel(0.55)
+  play flute ney.vel(0.55) from 8
+  play choir wail.vel(0.6) from 8
+}
+section queen 16 {
+  play boom "0" at 0
+  play war "[gong, taiko] ~ ~ ~".vel(1) at 0
+  play kick stomp
+  play sub low.legato(0.98)
+  play hand maqsum2.vel(accents)
+  play war drums2.vel("[1 .6 .6 .9 .6 .6 .95 .7]")
+  play oud pluck
+  play bones "<[d3,a3] [d3,a3] [eb3,bb3] [d3,a3]>".vel(0.85)
+  play choir wail.vel(0.72)
+  play shout "x" at 0
+}
+section sea 8 {
+  play hand maqsum.vel(accents).velscale(0.72)
+  play flute ney.vel(0.62)
+  play choir wail.vel(0.5)
+  play celli "<d2 d2 eb2 d2>".vel(0.65)
+  play war "taiko ~ ~ ~".vel(0.7) from 4 to 6
+  play war "taiko*4".vel(0.8) from 6 to 7
+  play war "taiko*16".vel(1) from 7
+  automate celli.gain -2 -> 5
+}
+section drown 16 {
+  play boom "0" at 0
+  play boom "0" at 8
+  play war "[gong, taiko, bd] ~ ~ ~".vel(1) at 0
+  play kick "bd*4"
+  play sub low.legato(0.98)
+  play hand maqsum2.fast(2).vel(accents)
+  play war drums2.vel("[1 .6 .6 .9 .6 .6 .95 .7]")
+  play oud pluck
+  play flute ney.vel(0.85)
+  play choir wail.vel(0.8)
+  play bones "<[d3,a3] [d3,a3] [eb3,bb3] [d3,a3]>".vel(1)
+  play celli "<d2 d2 eb2 d2>".vel(0.85)
+}
+section buried 6 {
+  play boom "0" at 0
+  play war "[gong, taiko, bd] ~ ~ ~".vel(1) at 0
+  play bones "[d2,a2,d3]".slow(2).vel(1) to 2
+  play hand maqsum.vel(accents).velscale(0.55) from 2 to 4
+  play celli "d2".slow(6).vel(0.45) from 2
+  automate master.gain 0 -> -24 from 3
+}
+arrange salt, patience, queen, sea, drown, buried

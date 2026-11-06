@@ -1,0 +1,80 @@
+// La Petite Horloge: a quick, slightly crooked waltz for accordion and upright piano. G minor.
+// Original melody, in the spirit of French-café minimalism: oom-pah-pah piano, a musette tune,
+// pizzicato and a glockenspiel that join on the repeats, and one quiet, bare piano interlude.
+// Pulsar bars have no time signature; every bar here is divided in three, so tempo 200 means a
+// 1.2 second bar (three beats at 150).
+tempo 200
+key "G minor"
+seed 41
+loudness -15
+
+bus room = reverb(decay: 1.3, size: 0.45, damp: 0.5, predelay: 0.008)
+
+track keys  = piano("upright", room: 0.25, gain: 1, humanize: 8) >> hp(60) >> eq(low: -1.5, mid: 2, mid_freq: 2500, high: 5, high_freq: 5000)
+track accor = accordion(room: 0.22, pan: -0.12, gain: 2, dynamics: 2, humanize: 7) >> hp(170) >> eq(mid: 1, mid_freq: 2200)
+track pizz  = orchestra("violin_pizz", players: 2, room: 0.3, pan: 0.3, gain: 1)
+track glock = orchestra("glockenspiel", room: 0.45, pan: 0.2, gain: -5, humanize: 5)
+track bow   = orchestra("violin", room: 0.35, pan: 0.32, gain: -7, release: 0.3)
+
+// ---- oom-pah-pah -----------------------------------------------------------------------------------
+let oom_a = "<[g2 [bb3,d4,g4] [bb3,d4,g4]] [eb2 [g3,bb3,eb4] [g3,bb3,eb4]] [c2 [g3,c4,eb4] [g3,c4,eb4]] [d2 [f#3,a3,d4] [f#3,a3,d4]] [g2 [bb3,d4,g4] [bb3,d4,g4]] [eb2 [g3,bb3,eb4] [g3,bb3,eb4]] [c2 [g3,c4,eb4] [g3,c4,eb4]] [d2 [f#3,a3,d4] [f#3,a3,c4]]>"
+let oom_b = "<[bb1 [bb3,d4,f4] [bb3,d4,f4]] [f2 [a3,c4,f4] [a3,c4,f4]] [g2 [bb3,d4,g4] [bb3,d4,g4]] [d2 [f#3,a3,d4] [f#3,a3,d4]] [eb2 [g3,bb3,eb4] [g3,bb3,eb4]] [bb1 [bb3,d4,f4] [bb3,d4,f4]] [c2 [g3,c4,eb4] [g3,c4,eb4]] [d2 [f#3,a3,d4] [f#3,a3,c4]]>"
+let lilt = "[.74 .5 .46]"
+
+// ---- the tune, six steps to a bar --------------------------------------------------------------------
+let tune_a = "<[bb4 _ a4 bb4 d5 _] [g5 _ _ _ f5 eb5] [eb5 _ d5 eb5 g5 _] [f#5 _ _ _ a4 _] [bb4 _ a4 bb4 d5 _] [bb5 _ _ g5 eb5 _] [c5 eb5 g5 _ f#5 g5] [a5 _ f#5 _ d5 _]>"
+let tune_b = "<[d5 _ f5 _ bb5 _] [a5 _ _ g5 f5 _] [bb4 _ d5 _ g5 _] [f#5 _ _ _ d5 _] [eb5 _ g5 _ bb5 _] [a5 _ _ g5 f5 d5] [eb5 _ d5 c5 bb4 a4] [a4 _ _ _ ~ ~]>"
+let a_dyn = "<[.62 .62 .56 .6 .7 .7] .8 [.66 .66 .58 .62 .74 .74] .76 [.62 .62 .56 .6 .7 .7] .86 [.62 .66 .76 .76 .72 .78] [.84 .84 .72 .72 .62 .62]>"
+let b_dyn = "<[.6 .6 .68 .68 .78 .78] [.82 .82 .82 .72 .66 .66] [.56 .56 .64 .64 .74 .74] .74 [.62 .62 .7 .7 .82 .82] [.82 .82 .82 .72 .66 .6] [.66 .66 .6 .58 .56 .54] .52>"
+let a_tune = tune_a.vel(a_dyn)
+let b_tune = tune_b.vel(b_dyn)
+let pluck_a = "<[g4 ~ ~] [eb4 ~ ~] [c5 ~ ~] [d4 ~ ~] [g4 ~ d5] [eb4 ~ bb4] [c5 ~ g4] [d5 a4 f#4]>"
+let answer = "<[d5 _ _ _ _ _] [eb5 _ _ _ _ _] [g5 _ _ _ _ _] [a5 _ _ _ _ _] [bb5 _ _ _ _ _] [g5 _ _ _ _ _] [eb5 _ _ _ _ _] [d5 _ _ _ _ _]>"
+
+// ---- arrangement ------------------------------------------------------------------------------------
+section wind_up 4 {
+  play keys oom_a.vel(lilt).velscale(0.85)
+}
+section tune 16 {
+  play keys oom_a.vel(lilt)
+  play accor a_tune
+}
+section middle 16 {
+  play keys oom_b.vel(lilt)
+  play accor b_tune
+  play pizz pluck_a.vel(0.6)
+}
+section tune2 16 {
+  play keys oom_a.vel(lilt)
+  play accor a_tune
+  play glock a_tune.velscale(0.7) from 8
+  play pizz pluck_a.vel(0.65)
+}
+section bare 8 {
+  play keys oom_a.vel(lilt).velscale(0.8)
+  play glock "<[bb4 _ _ _ ~ ~] ~ [eb5 _ _ _ ~ ~] ~ [bb4 _ _ _ ~ ~] ~ [c5 _ _ _ ~ ~] [a4 _ _ _ ~ ~]>".vel(0.6)
+}
+section middle2 16 {
+  play keys oom_b.vel(lilt)
+  play accor b_tune.velscale(1.08)
+  play bow answer.vel(0.5)
+  play pizz pluck_a.vel(0.7)
+  play glock b_tune.velscale(0.65) from 8
+}
+section last 16 {
+  play keys oom_a.vel(lilt).velscale(1.05)
+  play accor a_tune.velscale(1.08)
+  play bow answer.vel(0.58)
+  play glock a_tune.velscale(0.75)
+  play pizz pluck_a.vel(0.75)
+}
+section stop 6 {
+  play keys oom_a.vel(lilt).velscale(0.72) to 3
+  play accor "<[bb4 _ a4 bb4 d5 _] [g5 _ _ _ f5 eb5] [d5 _ _ _ _ _]>".vel(0.55) to 3
+  play keys "[g1,g2,d3,bb3,d4,g4]".slow(3).vel(0.5) from 3
+  play accor "[bb4,d5,g5]".slow(3).vel(0.3) from 3
+  automate accor.gain 2 -> -8 from 3
+  automate master.gain 0 -> -8 from 3
+  play glock "g5".slow(3).vel(0.5) from 3
+}
+arrange wind_up, tune, middle, tune2, bare, middle2, last, stop

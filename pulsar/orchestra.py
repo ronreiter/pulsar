@@ -50,6 +50,9 @@ PITCHED = {
     "basses_spic": (["Strings/Solo Contrabass/Spic"], False, 0.25, 1, "contrabass, spiccato"),
     "basses_pizz": (["Strings/Solo Contrabass/Pizz"], False, 0.4, 1, "contrabass, pizzicato"),
     "harp": (["Strings/Harp"], False, 1.5, 4, "concert harp"),
+    "violin": (["Strings/Solo Violin/Arco Vib"], True, 0.35, 4, "solo violin, bowed with vibrato"),
+    "violin_pizz": (["Strings/Solo Violin/Pizz"], False, 0.3, 4, "solo violin, pizzicato"),
+    "glockenspiel": (["Percussion/Glock"], False, 2.5, 5, "glockenspiel"),
     "horns": (["Brass/F Horn/sus"], True, 0.4, 3, "French horn, sustained"),
     "horns_stac": (["Brass/F Horn/stac"], False, 0.25, 3, "French horn, staccato"),
     "trombones": (["Brass/Tenor Trombone/sus"], True, 0.35, 2, "tenor trombone, sustained"),
@@ -85,6 +88,9 @@ KIT = {
     "snare": (r"^Percussion/Snare2-HitSN_.*\.wav$", "snare drum"),
     "snareroll": (r"^Percussion/Snare2-rollSN_.*\.wav$", "snare roll"),
     "anvil": (r"^Percussion/Anvil_Hit1_.*\.wav$", "anvil"),
+    "doum": (r"^Percussion/Tumba-HitN_.*\.wav$", "low hand drum, open (a darbuka's doum)"),
+    "tek": (r"^Percussion/Quinto-HitN_.*\.wav$", "high hand drum, open (a darbuka's tek)"),
+    "ka": (r"^Percussion/Quinto-Tap1_.*\.wav$", "high hand drum, light tap"),
 }
 
 # The pattern language normalises some drum names (snare -> sd, crash -> cr); map them back.

@@ -22,6 +22,11 @@ from .errors import PulsarError
 ROOT = Path(os.environ.get("PULSAR_CACHE", Path.home() / ".cache" / "pulsar")) / "instruments"
 BASE = "https://freepats.zenvoid.org/Piano"
 PIANOS = {
+    "accordion": dict(url="https://github.com/freepats/button-accordion-HN/releases/download/2024-03-29/ButtonAccordionHN-SFZ+FLAC-20240329.7z",
+                      archive="accordion.7z", dir="accordion", size="5 MB",
+                      title="Button Accordion HN", creator="Jeff Stauffer, FreePats", license="CC0",
+                      license_url="https://creativecommons.org/publicdomain/zero/1.0/",
+                      page="https://freepats.zenvoid.org/Organ/accordion.html"),
     "grand": dict(url=f"{BASE}/SalamanderGrandPiano/SalamanderGrandPianoV3+20161209_44khz16bit.tar.xz",
                   archive="grand.tar.xz", dir="grand", size="410 MB",
                   title="Salamander Grand Piano V3", creator="Alexander Holm", license="CC BY 3.0",

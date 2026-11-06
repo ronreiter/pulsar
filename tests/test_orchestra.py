@@ -87,3 +87,11 @@ def test_layers_takes_loops_and_kit(lib):
 def test_to_ends_notes():
     sc = compile_song(run('tempo 60\ntrack v = synth("pad")\nsection a 4 { play v "a4".slow(4) to 2.5 }\narrange a\n')[0])
     assert sc.notes["v"][0].dur == pytest.approx(10.0)  # 4-bar note cut at bar 2.5 (bars are 4 s)
+
+
+def test_a_big_drum_can_open_the_song(lib):
+    # humanize can place the first hit (and its thump) a few ms before bar 0: every seed must render
+    for seed in range(12):
+        a = render(f'seed {seed}\ntempo 60\ntrack p = orchestra("percussion", thump: 1, humanize: 20)\n'
+                   'section a 1 { play p "bd ~ ~ ~" }\narrange a\n', "p")
+        assert np.abs(a).max() > 0
