@@ -213,7 +213,7 @@ damper noise) sound as a real piano's do.
 ```
 track keys   = piano("grand", pedal: 0.4, hall: 0.4)
 track melody = piano("grand", pedal: 0.6, gain: 3)
-section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8)  play melody "<[a5 _ f#5 _] d5>" }
+section a 8 { play keys "<Dmaj9 Gmaj9>".arp("updown", 1/8); play melody "<[a5 _ f#5 _] d5>" }
 ```
 
 | setting | meaning |
@@ -343,8 +343,12 @@ ableton_set("project.als", tracks: "declared", sound_at: "Drop")
 track kick   = ableton_track("Kick")
 track bass   = ableton_track("Bassline", octave: 4)
 track shaker = ableton_track("Shaker Loop")
-section groove 8 { play kick "x*4"  play bass "<c ab f g>".struct("[~ x x x]*4")  play shaker "x" }
+section groove 8 { play kick "x*4"; play bass "<c ab f g>".struct("[~ x x x]*4"); play shaker "x" }
 ```
+
+Pulsar's own tracks (`synth()`, `voice()`, `sampler()`, `ambience()`, ...) can play alongside the
+set's: they render with their own effects and buses, then join the set's mix in front of its
+master chain, so the set's master glues everything together.
 
 ## Samples
 
@@ -434,7 +438,7 @@ the usual), not what.
 ```
 track birds = ambience("dawn chorus", fade: 8, gain: -1) >> hp(300)
 track water = ambience("water trickle", license: "cc0", width: 1.2) >> hp(160) >> lp(9000)
-section intro 8 { play birds "x"  play water "x" }
+section intro 8 { play birds "x"; play water "x" }
 ```
 
 `pulsar sounds "rain on leaves"` lists the candidates (length, license, author, page); pin

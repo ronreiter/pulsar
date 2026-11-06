@@ -218,3 +218,14 @@ section a 4 { play kit "bd*4, hh*8" }
 section b 4 extends a { play kit "cr" at 0 }
 ''')
     assert any("replaces what it inherited" in w for w in score_warnings(sc))
+
+
+def test_one_line_sections_in_the_language_guide_parse():
+    # two plays on one line need a ";" -- keep the guide's examples valid
+    from pathlib import Path
+    from pulsar.parser import parse
+    guide = (Path(__file__).parent.parent / "pulsar" / "LANGUAGE.md").read_text()
+    lines = [l for l in guide.splitlines() if l.startswith("section ") and l.rstrip().endswith("}")]
+    assert lines
+    for line in lines:
+        parse(line + "\n")

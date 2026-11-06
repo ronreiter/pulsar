@@ -263,3 +263,14 @@ def test_palette_hits_and_frozen_automation(live_set, tmp_path):
     from pulsar.ableton.engine import Automation
     a = Automation([{"target": "1", "points": [(0, 0.0), (4, 1.0)]}], 120, SR * 2, freeze=2)
     assert np.allclose(a.curve("1", None), 0.5)      # held at its value on beat 2
+
+
+def test_a_songs_own_tracks_play_with_the_set(live_set, tmp_path):
+    from pulsar.render import Renderer as SongRenderer
+    p = tmp_path / "both.pulse"
+    src = (f'tempo 120\nableton_set("{live_set}", tracks: "declared")\ntrack lead = ableton_track("Lead")\n'
+           'track warm = synth("sub")\nsection a 2 { play lead "a4"; play warm "a2" }\narrange a\n')
+    song, _ = run(src, str(p))
+    res = SongRenderer(compile_song(song), log=lambda m: None).render()
+    # Lead has no instrument and Tone is left out, so everything heard is the Pulsar synth
+    assert np.abs(res.mix).max() > 0.05 and "warm" in res.info["tracks"]

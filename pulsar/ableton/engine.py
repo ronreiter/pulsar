@@ -50,12 +50,13 @@ def _val(dev, path, default=0.0):
 
 class Renderer:
     def __init__(self, live: dict, notes: dict[str, list], seconds: float, log=print, trim: dict | None = None,
-                 include: set | None = None, freeze: float | None = None):
+                 include: set | None = None, freeze: float | None = None, extra: np.ndarray | None = None):
         """`notes`: Ableton track name -> [(time s, dur s, midi key, velocity 0-1)] from the Pulsar song;
         for an audio track the key is None and each note starts the track's clip (a hit).
         `include`: only these tracks make sound (groups, returns and the master still process them);
         None plays every track, audio tracks with their own clips.
-        `freeze`: a beat of the set; every automated parameter holds its value there."""
+        `freeze`: a beat of the set; every automated parameter holds its value there.
+        `extra`: more audio (the Pulsar song's own tracks) summed in before the master chain."""
         self.live = live
         self.tempo = live["tempo"]
         self.notes = notes
@@ -66,6 +67,7 @@ class Renderer:
         self.post: dict[str, np.ndarray] = {}  # track id -> post-effects audio (for sidechains)
         self.trim = trim or {}  # track name -> extra fader dB (calibration against a reference)
         self.include = include
+        self.extra = extra
         self._fx = None
 
     # -- the graph --------------------------------------------------------------------------
@@ -113,6 +115,9 @@ class Renderer:
                 break
         if ret_out is not None:
             master_in += ret_out
+        if self.extra is not None:
+            k = min(self.n, self.extra.shape[1])
+            master_in[:, :k] += self.extra[:, :k].astype(np.float32)
         m = self.chain(self.live["master"], master_in)
         return self.match(self.fader(self.live["master"], m))
 
