@@ -123,6 +123,6 @@ def generate(prompt: str, model: str = "sfx", seconds: float = 4.0, seed: int = 
 
 
 def credit(prompt: str, model: str) -> dict:
-    return {"title": prompt, "creator": f"generated with Stable Audio 3 {MODELS[model]}", "license": LICENSE,
+    return {"title": prompt, "creator": f"Stable Audio 3 {MODELS[model]} (generated locally)", "license": LICENSE,
             "url": PAGES[model],
             "credit": f'"{prompt}" -- generated locally with Stable Audio 3 {MODELS[model]} ({LICENSE}, {PAGES[model]})'}
