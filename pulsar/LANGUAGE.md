@@ -302,6 +302,9 @@ section drop 16 {
 | `calibrate` | `true` (default): the track is brought to Pulsar's reference level once, keeping its dynamics |
 | `transpose` | semitones |
 
+Serum 2 presets (`.SerumPreset`) load from its factory library and your own folders:
+`plugin("serum", preset: "LD - Supersaw")`; `pulsar plugins presets serum pad` lists them.
+
 `pulsar plugins` lists what's installed, `pulsar plugins presets surge lead` searches presets,
 `pulsar plugins params surge filter` lists parameters. A plugin track renders as one
 continuous performance (glides, LFOs and voices carry across notes), so it isn't humanized

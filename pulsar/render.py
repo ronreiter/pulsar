@@ -592,8 +592,11 @@ class Renderer:
                 ok = proc.load_vst3_preset(str(pre))
             elif pre.suffix.lower() == ".fxp":
                 ok = proc.load_state(str(plugins.state_from_fxp(pre)))
+            elif pre.suffix.lower() == ".serumpreset":
+                ok = proc.load_state(str(plugins.state_from_serum(pre)))
             else:
-                raise PulsarError(f"Pulsar can't load {pre.suffix} presets yet", hint="use .fxp or .vstpreset files")
+                raise PulsarError(f"Pulsar can't load {pre.suffix} presets yet",
+                                  hint="use .fxp, .vstpreset or .SerumPreset files")
             if ok is False:
                 raise PulsarError(f"{path.stem} refused the preset {pre.name}")
         desc = proc.get_parameters_description()

@@ -19,6 +19,8 @@ dependencies = [
   "soundfile>=0.12",
   "pyloudnorm>=0.1",
   "lark>=1.1",
+  "cbor2>=5.4",
+  "zstandard>=0.21",
 ]
 
 [project.urls]
@@ -38,7 +40,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["pulsar", "pulsar.dsp"]
+packages = ["pulsar", "pulsar.dsp", "pulsar.ableton"]
 
 [tool.setuptools.package-data]
 pulsar = ["grammar.lark", "LANGUAGE.md"]

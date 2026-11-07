@@ -210,12 +210,14 @@ def preset_dirs(name: str) -> list[Path]:
         return [d for r in roots for d in (r / "patches_factory", r / "patches_3rdparty")] + user
     if k == "vital":
         return [home / "Music/Vital", home / "Documents/Vital", home / ".local/share/vital"]
-    if k == "serum":
-        return [home / "Documents/Xfer/Serum 2 Presets", home / "Documents/Xfer/Serum Presets"]
+    if k == "serum":  # Serum 2's factory library installs system-wide; user presets live in Documents
+        lib = "Audio/Presets/Xfer Records/Serum 2 Presets"
+        return [Path("/Library") / lib, home / "Library" / lib, home / "Documents/Xfer/Serum 2 Presets",
+                home / "Documents/Xfer/Serum Presets"]
     return []
 
 
-PRESET_EXT = (".fxp", ".vstpreset", ".vital")
+PRESET_EXT = (".fxp", ".vstpreset", ".vital", ".serumpreset")
 
 
 def presets(name: str) -> list[Path]:
@@ -306,6 +308,61 @@ def state_from_fxp(path: Path) -> Path:
     if not out.exists():
         xml = ('<?xml version="1.0" encoding="UTF-8"?>\n\n<VST3PluginState><IComponent>'
                + juce_b64encode(chunk + JUCE_TRAILER) + "</IComponent></VST3PluginState>").encode() + b"\0"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_bytes(b"VC2!" + struct.pack("<I", len(xml) - 1) + xml)
+        os.replace(tmp, out)
+    return out
+
+
+# -- Serum 2 presets -> plugin state -----------------------------------------------------------
+#
+# A .SerumPreset and Serum 2's VST3 processor state are the same container: "XferJson\0", a
+# little-endian u64 length, a JSON header, then a u32 uncompressed size, a u32 format version (2)
+# and a zstd frame holding the patch as one CBOR map. The header's "hash" is the MD5 of that frame.
+# The state version of the map has "component": "processor" and none of the preset's browser and
+# editor-only entries, so a preset becomes a state by dropping those, tagging it, and re-packing.
+
+SERUM_PRESET_ONLY = {"ClipPlayer", "Filter", "GranularOsc", "MultiSampleOsc", "Osc", "SerumGUI", "SpectralOsc",
+                     "WTOsc", "arpBankDisplayName", "clipBankDisplayName", "fileType", "presetAuthor",
+                     "presetDescription", "presetName"}
+
+
+def _xfer_split(data: bytes) -> tuple[dict, bytes]:
+    import json
+    if data[:9] != b"XferJson\0":
+        raise PulsarError("not a Serum 2 preset (no XferJson header)")
+    n = struct.unpack("<Q", data[9:17])[0]
+    return json.loads(data[17:17 + n]), data[17 + n:]
+
+
+def serum_processor_state(path: Path) -> bytes:
+    """The Serum 2 VST3 processor state that loads this .SerumPreset."""
+    import json
+
+    import cbor2
+    import zstandard
+    meta, body = _xfer_split(path.read_bytes())
+    size, version = struct.unpack("<II", body[:8])
+    patch = cbor2.loads(zstandard.ZstdDecompressor().decompress(body[8:], max_output_size=max(size, 1) * 4))
+    patch = {k: v for k, v in patch.items() if k not in SERUM_PRESET_ONLY}
+    patch["component"] = "processor"
+    raw = cbor2.dumps(patch)
+    frame = zstandard.ZstdCompressor(level=3).compress(raw)
+    head = {"component": "processor", "hash": hashlib.md5(frame).hexdigest(), "product": meta.get("product", "Serum2"),
+            "productVersion": meta.get("productVersion", "2.0.0"), "url": meta.get("url", "https://xferrecords.com/"),
+            "vendor": meta.get("vendor", "Xfer Records"), "version": meta.get("version", 7.0)}
+    hb = json.dumps(head, separators=(",", ":")).encode()
+    return b"XferJson\0" + struct.pack("<Q", len(hb)) + hb + struct.pack("<II", len(raw), version) + frame
+
+
+def state_from_serum(path: Path) -> Path:
+    """A VST3 state file (cached) that loads this .SerumPreset into Serum 2."""
+    proc = serum_processor_state(path)
+    out = ROOT / "states" / (hashlib.sha1(proc).hexdigest()[:16] + ".state")
+    if not out.exists():
+        xml = ('<?xml version="1.0" encoding="UTF-8"?>\n\n<VST3PluginState><IComponent>' + juce_b64encode(proc)
+               + "</IComponent></VST3PluginState>").encode() + b"\0"
         out.parent.mkdir(parents=True, exist_ok=True)
         tmp = out.with_suffix(f".{os.getpid()}.tmp")
         tmp.write_bytes(b"VC2!" + struct.pack("<I", len(xml) - 1) + xml)
