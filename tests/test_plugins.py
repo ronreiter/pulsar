@@ -93,3 +93,23 @@ def test_surge_preset_and_automation_change_the_sound():
     assert bright(opened) > 3 * bright(closed)  # automation reaches the plugin
     fixed = render(acid.format(p=", a_filter_1_cutoff: 0.9", a=""), "s")
     assert bright(fixed) > 3 * bright(closed)  # and so does a plain setting
+
+
+def test_serum_preset_becomes_a_processor_state(tmp_path):
+    import hashlib, json, struct
+    import cbor2, zstandard
+    patch = {"Env0": {"plainParams": {"kParamAttack": 0.01}}, "SerumGUI": {"x": 1.0}, "presetName": "Test",
+             "fileType": "SerumPreset"}
+    raw = cbor2.dumps(patch)
+    frame = zstandard.ZstdCompressor().compress(raw)
+    head = json.dumps({"fileType": "SerumPreset", "hash": hashlib.md5(frame).hexdigest(), "product": "Serum2",
+                       "productVersion": "2.0.18", "version": 7.0}).encode()
+    p = tmp_path / "Test.SerumPreset"
+    p.write_bytes(b"XferJson\0" + struct.pack("<Q", len(head)) + head + struct.pack("<II", len(raw), 2) + frame)
+    state = plugins.serum_processor_state(p)
+    meta, body = plugins._xfer_split(state)
+    assert meta["component"] == "processor" and meta["hash"] == hashlib.md5(body[8:]).hexdigest()
+    out = cbor2.loads(zstandard.ZstdDecompressor().decompress(body[8:], max_output_size=10000))
+    # the patch survives; the browser/editor-only entries go; the map is tagged as a processor state
+    assert out == {"Env0": {"plainParams": {"kParamAttack": 0.01}}, "component": "processor"}
+    assert plugins.state_from_serum(p).read_bytes()[:4] == b"VC2!"
