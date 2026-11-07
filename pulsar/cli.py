@@ -107,7 +107,7 @@ def score_json(path: str, source: str | None = None) -> dict:
                   "pitch": n.pitch, "drum": n.drum, "vel": round(n.vel, 3), "slice": n.ctrl.get("slice"),
                   "slide": bool(n.ctrl.get("slide")), "accent": bool(n.ctrl.get("accent"))}
                  for n in score.notes.get(name, [])]
-        tracks.append({"name": name, "lane": lane, "preset": inst.preset, "engine": inst.engine,
+        tracks.append({"name": name, "lane": lane, "preset": display_preset(inst), "engine": inst.engine,
                        "effects": [e.name for e in inst.inserts], "gain": float(tr.mixer.get("gain", 0)),
                        "pan": float(tr.mixer.get("pan", 0)),
                        "sends": {b: float(tr.mixer[b]) for b in song.buses if tr.mixer.get(b)},
@@ -135,6 +135,18 @@ def score_json(path: str, source: str | None = None) -> dict:
             "total_bars": score.total_bars, "seconds": score.seconds,
             "sections": [{"name": n, "bar": b, "bars": l} for n, b, l in score.sections],
             "tracks": tracks, "automation": autos, "output": output}
+
+
+def display_preset(inst) -> str:
+    """What a track header shows for its sound: a plugin's preset (not just "serum"), a sample's file,
+    a generated sound's description (not its internal reference)."""
+    import re
+    if inst.kind == "plugin" and inst.sample.get("preset"):
+        return Path(str(inst.sample["preset"])).stem if "/" in str(inst.sample["preset"]) else str(inst.sample["preset"])
+    m = re.match(r"^(?:gen:)?(sfx|music|medium):[\d.]+:\d+:(.*)$", str(inst.preset), re.S)
+    if m:
+        return "generated: " + m.group(2)
+    return Path(str(inst.preset)).name if "/" in str(inst.preset) else str(inst.preset)
 
 
 def cmd_score(args):
