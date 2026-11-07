@@ -52,7 +52,8 @@ def describe_score(score) -> str:
         if tr.inst.kind == "ambience":
             desc = f"ambience {tr.inst.sample['query']!r}"
             rng = f" ({sum(n.dur for n in notes):.0f}s of stock recording)" if notes else ""
-        elif notes and tr.inst.kind in ("sampler", "voice"):
+        elif notes and (tr.inst.kind in ("sampler", "voice") or tr.inst.kind == "ableton"
+                        and any(n.pitch is None and n.drum is None for n in notes)):
             pitched = [n.pitch for n in notes if n.pitch is not None]
             rng = (f" range {theory.midi_name(int(min(pitched)))}-{theory.midi_name(int(max(pitched)))}"
                    if pitched else " (as recorded)")

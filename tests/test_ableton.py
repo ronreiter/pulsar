@@ -274,3 +274,12 @@ def test_a_songs_own_tracks_play_with_the_set(live_set, tmp_path):
     res = SongRenderer(compile_song(song), log=lambda m: None).render()
     # Lead has no instrument and Tone is left out, so everything heard is the Pulsar synth
     assert np.abs(res.mix).max() > 0.05 and "warm" in res.info["tracks"]
+
+
+def test_check_describes_hits_on_set_tracks(live_set, tmp_path):
+    # "x" on a one-note track has no pitch and no drum name; the summary must not choke on it
+    from pulsar.analyze import describe_score
+    song, _ = run(f'ableton_set("{live_set}", tracks: "declared")\ntrack lead = ableton_track("Lead")\n'
+                  'track tone = ableton_track("Tone")\nsection a 1 { play lead "x*4"; play tone "x" }\narrange a\n',
+                  str(tmp_path / "s.pulse"))
+    assert "lead" in describe_score(compile_song(song))
