@@ -381,19 +381,27 @@ struct ArrangementView: View {
         ctx.fill(Path(rect), with: .color(Palette.header))
         ctx.fill(Path(CGRect(x: 0, y: y + lane.height - 1, width: hw, height: 1)), with: .color(.black.opacity(0.5)))
         let t = lane.track
+        var ctx = ctx
+        ctx.clip(to: Path(rect))  // nothing drawn for this header spills into the lanes or the next header
+        // labels stop short of the pitch / drum-row labels on the right edge
+        let textW = hw - 12 - (lane.kind == .automation ? 8 : 34)
         if lane.kind == .automation {
-            ctx.draw(Text("↳ " + (lane.auto?.param ?? "")).font(.system(size: 10.5)).foregroundColor(color.opacity(0.9)),
+            ctx.draw(fitted(ctx, "↳ " + (lane.auto?.param ?? ""), font: .system(size: 10.5), color: color.opacity(0.9),
+                            width: textW - 4),
                      at: CGPoint(x: 16, y: y + lane.height / 2), anchor: .leading)
             return
         }
         ctx.fill(Path(CGRect(x: 0, y: y, width: 4, height: lane.height)), with: .color(color))
         let selected = model.selectedTrack == t.name
-        ctx.draw(Text(t.name).font(.system(size: 12.5, weight: .semibold)).foregroundColor(selected ? .white : .white.opacity(0.9)),
+        ctx.draw(fitted(ctx, t.name, font: .system(size: 12.5, weight: .semibold),
+                        color: selected ? .white : .white.opacity(0.9), width: textW),
                  at: CGPoint(x: 12, y: y + 11), anchor: .leading)
         let icon = t.lane == "drums" ? "drums" : (t.lane == "sampler" ? "sampler" : t.engine)
-        var sub = "\(t.preset) · \(icon)"
+        // a sample is named by its file, not its whole path
+        let preset = t.preset.contains("/") ? (t.preset as NSString).lastPathComponent : t.preset
+        var sub = "\(preset) · \(icon)"
         if t.gain != 0 { sub += String(format: " · %+.1f dB", t.gain) }
-        ctx.draw(Text(sub).font(.system(size: 10)).foregroundColor(.white.opacity(0.5)),
+        ctx.draw(fitted(ctx, sub, font: .system(size: 10), color: .white.opacity(0.5), width: textW),
                  at: CGPoint(x: 12, y: y + 25), anchor: .leading)
         var chips = t.effects
         if t.duck > 0 { chips.append("duck") }
@@ -422,6 +430,19 @@ struct ArrangementView: View {
             ctx.draw(Text(noteName(lane.pitchLo + 1)).font(.system(size: 8.5, design: .monospaced)).foregroundColor(.white.opacity(0.35)),
                      at: CGPoint(x: hw - 8, y: y + lane.height - 7), anchor: .trailing)
         }
+    }
+
+    /// `s` as a text no wider than `width`, cut with an ellipsis if it has to be.
+    private func fitted(_ ctx: GraphicsContext, _ s: String, font: Font, color: Color, width: CGFloat) -> Text {
+        func text(_ x: String) -> Text { Text(x).font(font).foregroundColor(color) }
+        let big = CGSize(width: 10_000, height: 100)
+        if ctx.resolve(text(s)).measure(in: big).width <= width { return text(s) }
+        var lo = 0, hi = s.count  // the longest prefix that fits with the ellipsis
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2
+            if ctx.resolve(text(String(s.prefix(mid)) + "…")).measure(in: big).width <= width { lo = mid } else { hi = mid - 1 }
+        }
+        return text(String(s.prefix(lo)).trimmingCharacters(in: .whitespaces) + "…")
     }
 
     private func drawRuler(_ ctx: GraphicsContext, size: CGSize, x0: CGFloat, ppb: CGFloat, visible: (CGFloat, CGFloat),
