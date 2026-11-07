@@ -91,6 +91,8 @@ by note at 96 kHz and placed sample-exactly:
 - a sampled orchestra (VSCO-2 CE, CC0): string sections with spiccato, tremolo and pizzicato, brass,
   woodwinds and big percussion (taiko, timpani, gong, cymbal swells), velocity-layered with
   alternating takes;
+- local sound generation with Stable Audio 3 (`generate("glass shattering")`, `pulsar generate`):
+  sound effects and instrumental textures made on your machine, cached per song;
 - Ableton Live set import (`pulsar import-ableton`): notes become editable clips; instruments (incl. VST3
   state), Live's devices, racks, macros, automation, groups, sends and sidechains are reproduced;
 - an open sound library (an open-source take on Splice): search, preview and insert openly licensed

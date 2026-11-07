@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -343,6 +344,34 @@ def cmd_import_ableton(args):
     return 0
 
 
+def cmd_generate(args):
+    """Generate a sound effect or instrumental texture locally with Stable Audio 3."""
+    from . import generate
+    from .errors import PulsarError
+
+    log = lambda m: print(m, file=sys.stderr)
+    try:
+        if args.setup:
+            generate.setup(log)
+            print(f"Stable Audio 3 is installed. The weights are gated: accept the license at {generate.PAGES[args.model]}"
+                  f" and log in once with: {generate.ENV / 'bin' / 'hf'} auth login", file=sys.stderr)
+            return 0
+        if not args.prompt:
+            print("error: describe the sound, e.g. pulsar generate \"rain on a tin roof\"", file=sys.stderr)
+            return 1
+        path = generate.generate(args.prompt, args.model, args.seconds, args.seed, log)
+        if args.output:
+            shutil.copyfile(path, args.output)
+            path = Path(args.output)
+        print(path)
+        if args.play:
+            subprocess.run(["afplay", str(path)] if sys.platform == "darwin" else ["ffplay", "-autoexit", "-nodisp", str(path)])
+    except PulsarError as e:
+        print(f"error: {e.msg}" + (f"\n  hint: {e.hint}" if e.hint else ""), file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_setup(args):
     """Check the installation and fetch the instruments, so the first render doesn't wait."""
     import shutil as _sh
@@ -509,6 +538,15 @@ def main(argv=None):
     ia.add_argument("--calibration", help="a JSON of per-track dB corrections to apply when rendering")
     ia.add_argument("--full", action="store_true", help="write every note of every section instead of compact loops")
     ia.set_defaults(fn=cmd_import_ableton)
+    gn = sub.add_parser("generate", help="make a sound effect or texture locally with Stable Audio 3")
+    gn.add_argument("prompt", nargs="?")
+    gn.add_argument("--model", choices=["sfx", "music", "medium"], default="sfx")
+    gn.add_argument("--seconds", type=float, default=4.0)
+    gn.add_argument("--seed", type=int, default=0)
+    gn.add_argument("-o", "--output")
+    gn.add_argument("--play", action="store_true")
+    gn.add_argument("--setup", action="store_true", help="install the generator (once) and show how to log in")
+    gn.set_defaults(fn=cmd_generate)
     st = sub.add_parser("setup", help="check the installation and download the instruments ahead of time")
     st.add_argument("--all", action="store_true", help="also the grand piano (410 MB) and the whole orchestra (~1 GB)")
     st.add_argument("--minimal", action="store_true", help="only check the tools; download nothing")

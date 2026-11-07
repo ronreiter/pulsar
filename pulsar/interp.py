@@ -1137,6 +1137,16 @@ def b_ableton_track(interp, name, octave=4, gain=0.0):
                       sample={"track": str(name), "audio": audio, "hit": hit})
 
 
+def b_generate(interp, prompt, model="sfx", seconds=4, seed=0):
+    """A sound made locally by Stable Audio 3 from a description, for sampler():
+    sampler(generate("thunder rolling far away", seconds: 6)). model: "sfx" or "music" (CPU) or
+    "medium" (NVIDIA GPU). Generated on the first render and cached; no vocals (use voice())."""
+    from . import generate
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise PulsarError('generate() needs a description, e.g. generate("glass shattering")')
+    return generate.ref(prompt.strip(), str(model), float(num(seconds, None, "seconds")), int(num(seed, None, "seed")))
+
+
 AMBIENCE_KEYS = {"license", "pick", "id", "fade", "start", "min_length"}
 
 
@@ -1351,7 +1361,7 @@ def b_chord(interp, symbol, octave=4):
 
 BUILTINS = {
     "synth": b_synth, "analog": _engine_builder("analog", -9.0), "fm": _engine_builder("fm", -9.0),
-    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra, "plugin": b_plugin, "ableton_set": b_ableton_set, "ableton_track": b_ableton_track,
+    "pluck": _engine_builder("pluck", -9.0), "drums": b_drums, "sampler": b_sampler, "voice": b_voice, "ambience": b_ambience, "piano": b_piano, "accordion": b_accordion, "orchestra": b_orchestra, "plugin": b_plugin, "generate": b_generate, "ableton_set": b_ableton_set, "ableton_track": b_ableton_track,
     "seq": b_seq, "clip": b_clip, "cat": b_cat, "stack": b_stack, "euclid": b_euclid,
     "ramp": b_ramp, "lfo": b_lfo, "print": b_print, "range": b_range, "len": b_len,
     "rand": b_rand, "choose": b_choose, "note": b_note, "chord": b_chord,
