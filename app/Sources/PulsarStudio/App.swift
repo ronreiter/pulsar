@@ -23,6 +23,8 @@ struct PulsarStudioApp: App {
             CommandGroup(replacing: .saveItem) {
                 Button("Save") { model.save() }.keyboardShortcut("s")
                 Button("Save As…") { model.saveAs() }.keyboardShortcut("s", modifiers: [.command, .shift])
+                Divider()
+                Button("Export as MP3…") { model.exportMP3() }.keyboardShortcut("e", modifiers: [.command, .shift])
             }
             CommandGroup(after: .textEditing) {
                 Divider()

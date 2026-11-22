@@ -251,6 +251,60 @@ final class StudioModel: ObservableObject {
         return cursorBar
     }
 
+    // MARK: export
+
+    /// Export the song as a 320 kbps MP3. The render Studio already made for this exact source is
+    /// converted with ffmpeg (instant); without one, the CLI renders straight to MP3.
+    func exportMP3() {
+        guard error == nil, score != nil else { NSSound.beep(); return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "mp3") ?? .audio]
+        let title = fileURL?.deletingPathExtension().lastPathComponent ?? "song"
+        panel.nameFieldStringValue = title + ".mp3"
+        if let dir = fileURL?.deletingLastPathComponent() { panel.directoryURL = dir }
+        guard panel.runModal() == .OK, let out = panel.url else { return }
+        let wav = cacheDir.appendingPathComponent("\(sourceHash).wav")
+        let done: @Sendable (Int32, String) -> Void = { [weak self] status, stderr in
+            Task { @MainActor in
+                guard let self else { return }
+                self.rendering = false
+                if status == 0 {
+                    self.renderStatus = "exported \(out.lastPathComponent)"
+                    NSWorkspace.shared.activateFileViewerSelecting([out])
+                } else {
+                    self.renderStatus = "export failed"
+                    self.error = ErrorData(message: "MP3 export failed", line: nil, column: nil, hint: nil,
+                                           text: stderr.isEmpty ? "MP3 export failed" : stderr)
+                }
+            }
+        }
+        rendering = true
+        renderStatus = "exporting \(out.lastPathComponent)…"
+        if FileManager.default.fileExists(atPath: wav.path), let ffmpeg = Self.ffmpegPath {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: ffmpeg)
+            p.arguments = ["-hide_banner", "-loglevel", "error", "-y", "-i", wav.path, "-c:a", "libmp3lame",
+                           "-b:a", "320k", "-id3v2_version", "3", "-metadata", "title=\(title)", out.path]
+            let err = Pipe()
+            p.standardError = err
+            p.terminationHandler = { proc in
+                let text = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                done(proc.terminationStatus, text)
+            }
+            do { try p.run() } catch { done(-1, "\(error)") }
+        } else {
+            _ = CLI.start(["render", cliPath, "--stdin", "-o", out.path], stdin: source, onLine: { _ in },
+                          completion: done)
+        }
+    }
+
+    /// ffmpeg, wherever Homebrew or the PATH put it (apps launched from Finder get a minimal PATH).
+    static var ffmpegPath: String? {
+        let path = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        return (["/opt/homebrew/bin", "/usr/local/bin"] + path).map { $0 + "/ffmpeg" }
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
     func renderOnly() {
         let hash = sourceHash
         render(to: cacheDir.appendingPathComponent("\(hash).wav"), hash: hash)
